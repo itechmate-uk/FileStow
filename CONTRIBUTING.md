@@ -35,4 +35,4 @@ bash -n bin/*.sh
 ## License
 
 By contributing you agree that your contributions are licensed under the
-[Apache License, Version 2.0](LICENSE), like the rest of Backup Suite.
+[Apache License, Version 2.0](LICENSE), like the rest of FileStow.
