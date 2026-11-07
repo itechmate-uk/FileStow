@@ -319,6 +319,10 @@ install_gui_system() {
     STAGING_DIR=$(mktemp -d /tmp/filestow-gui-install.XXXXXX)
     gui_copy="$STAGING_DIR/gui"
     cp -a "$SOURCE_DIR/gui" "$gui_copy"
+    # The GUI's updater sits beside gui/ (bin/filestow-update.py); the GUI
+    # installer copies it from ../bin, so the copy needs it there too.
+    mkdir -p "$STAGING_DIR/bin"
+    cp -a "$SOURCE_DIR/bin/filestow-update.py" "$STAGING_DIR/bin/filestow-update.py"
     chown -R "$login": "$STAGING_DIR"
     chmod 700 "$STAGING_DIR"
     log "Installing the GUI as $login."

@@ -1898,6 +1898,10 @@ test_gui_broker_installer_guards() {
     output_file="$test_root/output.log"
     "$ROOT_DIR/bin/install-gui-broker.sh" --help > "$output_file"
     assert_contains "$output_file" 'refresh-acl'
+    # install.sh gives the GUI's staging copy its updater (../bin/filestow-update.py),
+    # or the installed GUI cannot update itself.
+    grep -F -A8 'gui_copy="$STAGING_DIR/gui"' "$ROOT_DIR/install.sh" | grep -F -q 'cp -a "$SOURCE_DIR/bin/filestow-update.py" "$STAGING_DIR/bin/filestow-update.py"' \
+        || fail_test 'install.sh does not copy the updater next to the GUI it installs'
     if "$ROOT_DIR/bin/install-gui-broker.sh" --bogus > "$output_file" 2>&1; then
         fail_test 'unknown option accepted'
     fi
