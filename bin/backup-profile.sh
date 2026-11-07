@@ -122,7 +122,7 @@ show_profiles() {
         current_level=$(current_adaptive_profile)
     fi
     memory_bytes=$(host_memory_bytes)
-    echo "Backup Suite file-backup resource profiles (host: $(host_cpu_cores) CPU cores, $(( ${memory_bytes:-0} / 1048576 )) MiB RAM)"
+    echo "FileStow file-backup resource profiles (host: $(host_cpu_cores) CPU cores, $(( ${memory_bytes:-0} / 1048576 )) MiB RAM)"
     echo "Limits mode: ${FILE_PROFILE_LIMITS_MODE:-fixed}. The watchdog contains or stops a backup that goes past its limits and reports it via ntfy."
     echo ""
     for profile_name in "${FILE_BACKUP_PROFILE_NAMES[@]}"; do
@@ -281,7 +281,7 @@ apply_live_limits() {
     "${SYSTEMCTL_COMMAND[@]}" is-active --quiet "$SERVICE_UNIT" 2>/dev/null || return 0
     control_group=$("${SYSTEMCTL_COMMAND[@]}" show "$SERVICE_UNIT" -p ControlGroup --value 2>/dev/null || true)
     [ -n "$control_group" ] || return 0
-    cgroup_dir="${BACKUP_SUITE_CGROUP_ROOT:-/sys/fs/cgroup}$control_group"
+    cgroup_dir="${FILESTOW_CGROUP_ROOT:-/sys/fs/cgroup}$control_group"
     [ -d "$cgroup_dir" ] || return 0
 
     quota_number="${PROFILE_CPU_QUOTA%\%}"

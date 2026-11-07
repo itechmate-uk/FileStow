@@ -1,8 +1,8 @@
 "use strict";
 
-// Backup Suite GUI server. Runs as the admin login's systemd user unit
-// (backup-suite-gui-4337.service), listens on a private Unix socket by default, and
-// reaches Backup Suite only through bin/backup-control.sh (directly in user mode, via
+// FileStow GUI server. Runs as the admin login's systemd user unit
+// (filestow-gui-4337.service), listens on a private Unix socket by default, and
+// reaches FileStow only through bin/backup-control.sh (directly in user mode, via
 // the root broker socket in system mode). Node standard library only.
 
 const fs = require("fs");
@@ -25,8 +25,8 @@ const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, "public");
 const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
 // The system-wide GUI is one system unit; a login's own GUI is a user unit.
-const SYSTEM_GUI = String(process.env.BACKUP_SUITE_GUI_SYSTEM || "") === "1";
-const UNIT_NAME = SYSTEM_GUI ? "backup-suite-gui.service" : `backup-suite-gui-${listenConfig.INSTANCE}.service`;
+const SYSTEM_GUI = String(process.env.FILESTOW_GUI_SYSTEM || "") === "1";
+const UNIT_NAME = SYSTEM_GUI ? "filestow-gui.service" : `filestow-gui-${listenConfig.INSTANCE}.service`;
 const MAX_BODY_BYTES = 256 * 1024;
 const STARTED_AT = new Date().toISOString();
 // The build of the page files this server serves: a hash of public/. A page that
@@ -68,7 +68,7 @@ function createApp({ env = process.env } = {}) {
   const csrfToken = guard.newToken();
   const client = new ControlClient({ env, getPreference: () => settings.general.backend });
   const events = new EventStore({ client, stateDir, getSettings: () => settings, log });
-  const live = new Live({ client, events, getSettings: () => settings, log, build: BUILD, idleStopMs: Number(env.BACKUP_SUITE_GUI_STREAM_GRACE_MS) || undefined });
+  const live = new Live({ client, events, getSettings: () => settings, log, build: BUILD, idleStopMs: Number(env.FILESTOW_GUI_STREAM_GRACE_MS) || undefined });
   const updates = new Updates({ appDir: ROOT, version: VERSION, stateDir, env, systemGui: SYSTEM_GUI });
   const terminals = new TerminalTasks({ env, log });
   let listen = listenConfig.resolveListen({ env, settings });
@@ -132,7 +132,7 @@ function createApp({ env = process.env } = {}) {
       socket: detected.socket,
       label: detected.mode === "system"
         ? `system mode · ${os.hostname()}`
-        : detected.mode === "user" ? `user mode · ${loginName()}@${os.hostname()}` : "Backup Suite not found"
+        : detected.mode === "user" ? `user mode · ${loginName()}@${os.hostname()}` : "FileStow not found"
     };
   }
 
@@ -250,7 +250,7 @@ function createApp({ env = process.env } = {}) {
             supported: false,
             code: error.code || "error",
             error: error.code === "invalid_request"
-              ? "Backup Suite on the server is older than the update feature; update it once with the installer from a release (sudo ./install.sh)."
+              ? "FileStow on the server is older than the update feature; update it once with the installer from a release (sudo ./install.sh)."
               : error.message
           }))
       ]);
@@ -288,12 +288,12 @@ function createApp({ env = process.env } = {}) {
       }
     }
 
-    // A Backup Suite without the update verb is updated in a terminal (sudo asks there).
+    // A FileStow without the update verb is updated in a terminal (sudo asks there).
     if (req.method === "POST" && pathname === "/api/updates/terminal") {
       const body = await readBody(req);
       try {
         const command = updates.terminalBackendCommand(String(body.version || ""), client.mode().mode, body.stop_running === true);
-        return sendJson(res, 202, { ok: true, task: terminals.start(command, { label: "Backup Suite update" }) });
+        return sendJson(res, 202, { ok: true, task: terminals.start(command, { label: "FileStow update" }) });
       } catch (error) {
         return sendError(res, error.code === "invalid_request" ? 400 : error.code === "busy" ? 409 : 502, error.code || "error", error.message);
       }
@@ -335,7 +335,7 @@ function createApp({ env = process.env } = {}) {
 
     if (req.method === "POST" && pathname === "/api/gui/restart") {
       if (SYSTEM_GUI) {
-        return sendError(res, 409, "system_gui", "This GUI is a system service; restart it with: sudo systemctl restart backup-suite-gui.service");
+        return sendError(res, 409, "system_gui", "This GUI is a system service; restart it with: sudo systemctl restart filestow-gui.service");
       }
       if (!env.INVOCATION_ID) {
         return sendError(res, 409, "not_systemd", "The GUI is not running under systemd; restart it by hand.");
@@ -434,7 +434,7 @@ function createApp({ env = process.env } = {}) {
   const autoCheck = () => {
     if (settings.updates.autoCheck) updates.check().catch(() => {});
   };
-  if (!env.BACKUP_SUITE_GUI_NO_AUTO_UPDATE_CHECK) {
+  if (!env.FILESTOW_GUI_NO_AUTO_UPDATE_CHECK) {
     setTimeout(autoCheck, 30 * 1000).unref?.();
     setInterval(autoCheck, 6 * 60 * 60 * 1000).unref?.();
   }

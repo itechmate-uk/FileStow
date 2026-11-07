@@ -1,7 +1,7 @@
 [Unit]
-Description=Backup Suite GUI (instance __INSTANCE__)
+Description=FileStow GUI (instance __INSTANCE__)
 Documentation=https://github.com/itechmate-uk/FileStow/blob/main/docs/GUI-SPECIFICATION.md
-Wants=backup-suite-gui-watchdog-__INSTANCE__.service
+Wants=filestow-gui-watchdog-__INSTANCE__.service
 StartLimitIntervalSec=600
 StartLimitBurst=5
 
@@ -25,7 +25,7 @@ MemorySwapMax=32M
 TasksMax=__TASKS_MAX__
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=backup-suite-gui
+SyslogIdentifier=filestow-gui
 
 [Install]
 WantedBy=default.target

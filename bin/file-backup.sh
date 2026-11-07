@@ -8,21 +8,21 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/notify-lib.sh"
 
-BACKUP_SUITE_RUNTIME_SCOPE="file-backup"
+FILESTOW_RUNTIME_SCOPE="file-backup"
 parse_standard_runtime_args "$@"
 setup_journal_logging "backup-file"
 load_global_config
 resolve_profile_ladder
 resolve_file_backup_profile "$(current_adaptive_profile)"
 setup_durable_logging "backup-file"
-acquire_backup_lock "file-backup" "Backup Suite file backup"
+acquire_backup_lock "file-backup" "FileStow file backup"
 
 require_rclone_bin
 require_file "$RCLONE_CONFIG_PATH"
 require_file "$FILE_SOURCE_CONFIG_PATH"
 require_command sha256sum
-if [ -n "${BACKUP_SUITE_PROJECT_FILTER_FILE:-}" ]; then
-    require_file "$BACKUP_SUITE_PROJECT_FILTER_FILE"
+if [ -n "${FILESTOW_PROJECT_FILTER_FILE:-}" ]; then
+    require_file "$FILESTOW_PROJECT_FILTER_FILE"
 fi
 
 run_started_at=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
@@ -173,13 +173,13 @@ for extra_flag in "${file_extra_args[@]}"; do
         -v|-vv|--verbose|--verbose=*|--log-level=INFO|--log-level=DEBUG) rclone_pass_info=1 ;;
     esac
 done
-if is_enabled_value "${BACKUP_SUITE_RCLONE_VERBOSE:-0}"; then
+if is_enabled_value "${FILESTOW_RCLONE_VERBOSE:-0}"; then
     rclone_pass_info=1
 fi
 
-if is_enabled_value "${BACKUP_SUITE_RCLONE_VERBOSE:-0}"; then
+if is_enabled_value "${FILESTOW_RCLONE_VERBOSE:-0}"; then
     file_progress_args=(--stats 10s --stats-one-line --stats-log-level NOTICE)
-elif [ "${BACKUP_SUITE_LOG_MODE:-journal}" = "journal" ]; then
+elif [ "${FILESTOW_LOG_MODE:-journal}" = "journal" ]; then
     file_progress_args=(--stats 1m --stats-one-line --stats-log-level NOTICE)
 fi
 
@@ -513,14 +513,14 @@ notify_stale_deferrals() {
 Some files have changed during every backup run for a long time, so the backup keeps skipping them and their remote copy is getting old:
 
 ${entry_lines}
-Why: Backup Suite does not upload files that are being written (modified within the last ${file_active_window_seconds}s, or seen changing during the upload), because a half-written copy could be worse than the previous one. The previous remote version of each file is kept.
+Why: FileStow does not upload files that are being written (modified within the last ${file_active_window_seconds}s, or seen changing during the upload), because a half-written copy could be worse than the previous one. The previous remote version of each file is kept.
 
-What to do: decide for each file. In the Backup Suite GUI (the job, Changing files), Exclude… or a right-click excludes the file or one of its folders in that project or in every project of the job. If it must be backed up, stop or pause its writer briefly. Without the GUI, add it to .backup-excludes in that project.
+What to do: decide for each file. In the FileStow GUI (the job, Changing files), Exclude… or a right-click excludes the file or one of its folders in that project or in every project of the job. If it must be backed up, stop or pause its writer briefly. Without the GUI, add it to .backup-excludes in that project.
 
 Host: $(hostname) | Profile: $PROFILE_NAME
 MSG
 )
-    notify_publish "${NOTIFY_NTFY_TITLE_PREFIX:-Backup Suite}: files repeatedly skipped while changing on $(hostname)" default "hourglass,backup" "$message" "" "" changing-files || true
+    notify_publish "${NOTIFY_NTFY_TITLE_PREFIX:-FileStow}: files repeatedly skipped while changing on $(hostname)" default "hourglass,backup" "$message" "" "" changing-files || true
 }
 
 migration_key_for_destination() {
@@ -641,7 +641,7 @@ write_link_migration_report() {
 
     mkdir -p "$(dirname "$report_file")"
     {
-        echo "Backup Suite --links migration report"
+        echo "FileStow --links migration report"
         echo "generated_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
         echo "source=$source_path"
         echo "destination=$destination_path"
@@ -843,7 +843,7 @@ process_project_sync() {
     local source_filter_args=()
     local source_sync_args=("${file_extra_args[@]}" "${file_progress_args[@]}")
 
-    if [ -n "${BACKUP_SUITE_PROJECT_FILTER_FILE:-}" ] && ! grep -Fxq "$project_label" "$BACKUP_SUITE_PROJECT_FILTER_FILE"; then
+    if [ -n "${FILESTOW_PROJECT_FILTER_FILE:-}" ] && ! grep -Fxq "$project_label" "$FILESTOW_PROJECT_FILTER_FILE"; then
         skipped_count=$((skipped_count + 1))
         echo "Skipping '$project_label' because it is outside the explicit migration project filter."
         project_result="skipped-filter"
@@ -873,7 +873,7 @@ process_project_sync() {
     migration_report_file=$(join_path "$STATE_DIR" "migration-reports" "${migration_key}.txt")
     migration_marker_file=$(join_path "$STATE_DIR" "link-migrations" "${migration_key}.confirmed")
 
-    if [ -f "$migration_marker_file" ] && { is_enabled_value "$BACKUP_SUITE_LINK_MIGRATION_REPORT" || is_enabled_value "$BACKUP_SUITE_CONFIRM_LINK_MIGRATION"; }; then
+    if [ -f "$migration_marker_file" ] && { is_enabled_value "$FILESTOW_LINK_MIGRATION_REPORT" || is_enabled_value "$FILESTOW_CONFIRM_LINK_MIGRATION"; }; then
         skipped_count=$((skipped_count + 1))
         echo "Migration already confirmed for '$project_label'; skipping it in migration mode. Normal scheduled backups will continue to process it."
         project_result="skipped-migrated"
@@ -893,7 +893,7 @@ process_project_sync() {
 
     echo "Syncing label='$project_label' source='$source_path' destination='$destination_path'"
 
-    if is_enabled_value "$BACKUP_SUITE_LINK_MIGRATION_REPORT"; then
+    if is_enabled_value "$FILESTOW_LINK_MIGRATION_REPORT"; then
         if write_link_migration_report "$source_path" "$destination_path" "$archive_path" "$migration_report_file" "${source_filter_args[@]}"; then
             echo "Dry-run only: no remote changes were made for '$project_label'."
         else
@@ -927,7 +927,7 @@ process_project_sync() {
 
         if [ -s "$destination_list_file" ]; then
             migration_applies=1
-            if is_enabled_value "$BACKUP_SUITE_CONFIRM_LINK_MIGRATION" && [ -s "$migration_report_file" ]; then
+            if is_enabled_value "$FILESTOW_CONFIRM_LINK_MIGRATION" && [ -s "$migration_report_file" ]; then
                 echo "Applying confirmed --links migration using report '$migration_report_file'."
             else
                 if ! write_link_migration_report "$source_path" "$destination_path" "$archive_path" "$migration_report_file" "${source_filter_args[@]}"; then
@@ -1226,7 +1226,7 @@ while IFS='|' read -r enabled label source_path destination_mode destination_val
     esac
 done < "$FILE_SOURCE_CONFIG_PATH"
 
-if is_enabled_value "$BACKUP_SUITE_LINK_MIGRATION_REPORT"; then
+if is_enabled_value "$FILESTOW_LINK_MIGRATION_REPORT"; then
     if [ "$failed_count" -gt 0 ]; then
         run_outcome="migration-report-with-errors"
         exit 1

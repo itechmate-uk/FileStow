@@ -1,6 +1,6 @@
 // Help texts for the `?` buttons. Plain data; app.js renders it as text (never HTML).
 // Sources: docs/RESOURCES.md, docs/OPERATIONS.md and docs/GUI-SPECIFICATION.md.
-window.BACKUP_SUITE_HELP = {
+window.FILESTOW_HELP = {
   navigation: {
     title: "Backup jobs",
     sections: [
@@ -27,7 +27,7 @@ window.BACKUP_SUITE_HELP = {
       ["Overview", "What is backed up and where, previous versions and how long they are kept, when the job last ran and was last backed up, when the next run reaches it, and projects that need a look."],
       ["Projects", "With isolation children each child directory is its own project: a failure in one never stops the others. Click a project for its paths, history and the files that changed in its last run."],
       ["Changed files", "The files each project uploaded in its last run: new, updated (the previous version moved to the archive) and removed (moved to the archive)."],
-      ["Changing files", "Files modified moments before their project synced are skipped and tried again next run; their previous remote version stays. A file skipped FILE_ACTIVE_MAX_DEFERRALS runs in a row never settles and you are notified. Exclude… on a row excludes the file or any of its folders, in that project only or in every project of the job (also projects added later). These excludes are kept in Backup Suite's config, listed under Excludes & stop files, and can be removed there. Or stop its writer briefly so it can be backed up."],
+      ["Changing files", "Files modified moments before their project synced are skipped and tried again next run; their previous remote version stays. A file skipped FILE_ACTIVE_MAX_DEFERRALS runs in a row never settles and you are notified. Exclude… on a row excludes the file or any of its folders, in that project only or in every project of the job (also projects added later). These excludes are kept in FileStow's config, listed under Excludes & stop files, and can be removed there. Or stop its writer briefly so it can be backed up."],
       ["Excludes & stop files", "The stop file (.nosync by default) pauses the job or one project. .backup-excludes patterns are never uploaded; .backup-volatile patterns may change during a sync without failing it."],
       ["Runs, Log, Source & destination", "This job's runs with each project's result, its part of the run log, and on request the size of the source and of the destination."]
     ]
@@ -35,7 +35,7 @@ window.BACKUP_SUITE_HELP = {
   admin: {
     title: "Admin",
     sections: [
-      ["What is here", "Backup Suite's settings and actions for the whole server, not for one job: start and stop, the schedule, resource profiles, the watchdog, ntfy, every global setting, every run, the sources file, logs and the audit log."],
+      ["What is here", "FileStow's settings and actions for the whole server, not for one job: start and stop, the schedule, resource profiles, the watchdog, ntfy, every global setting, every run, the sources file, logs and the audit log."],
       ["Changes", "Every change asks for confirmation, is validated by the control script, and is recorded in the audit log."]
     ]
   },
@@ -49,7 +49,7 @@ window.BACKUP_SUITE_HELP = {
   settings: {
     title: "All settings",
     sections: [
-      ["global.conf", "Every key of Backup Suite's global.conf, grouped. Each save is checked by the server, confirmed, backed up and audited, and applies from the next run."],
+      ["global.conf", "Every key of FileStow's global.conf, grouped. Each save is checked by the server, confirmed, backed up and audited, and applies from the next run."],
       ["Schedule", "When file and database backups run (systemd calendar expressions). Saved changes are applied to the timers at once."],
       ["Remote", "Changing the remote root, the hostname folder or the default destination moves every job's destination: the next run uploads everything again there; nothing is moved or deleted."],
       ["Read-only", "Programs and paths that run as root (rclone binary, extra rclone flags, config and state paths), the folders jobs may back up, and install options are shown but changed in global.conf on the server only: from the GUI they could make root run anything."]
@@ -89,7 +89,7 @@ window.BACKUP_SUITE_HELP = {
   notifications: {
     title: "Notifications",
     sections: [
-      ["Channels", "Backup Suite writes one message per event (failure, watchdog action, changing files, recovery, test) and sends it through every enabled channel. ntfy is the first channel; Telegram, WhatsApp, email and SMS are planned."],
+      ["Channels", "FileStow writes one message per event (failure, watchdog action, changing files, recovery, test) and sends it through every enabled channel. ntfy is the first channel; Telegram, WhatsApp, email and SMS are planned."],
       ["ntfy", "Enable or disable the channel, set its topic and token (the token is never shown), send a test, and read its delivery log: every message, whether it was sent or failed, and why."],
       ["Bell", "The bell lists every notification with each channel's result. \"Not sent again\" means the watchdog already reported the same episode; \"GUI only\" marks routine events such as a normal run finishing."]
     ]
@@ -105,11 +105,11 @@ window.BACKUP_SUITE_HELP = {
   updates: {
     title: "Updates",
     sections: [
-      ["The button", "The top-bar button says Up to date, or in amber Update available when a newer release is out, or Updating… while one installs. It opens this window. Update everything updates Backup Suite first, then this GUI, and reloads the page on the new GUI."],
+      ["The button", "The top-bar button says Up to date, or in amber Update available when a newer release is out, or Updating… while one installs. It opens this window. Update everything updates FileStow first, then this GUI, and reloads the page on the new GUI."],
       ["Where updates come from", "This project's releases on GitHub. The GUI checks for the latest release (every 6 hours when automatic checks are on in Settings, or with Check now). Only the latest published release can be installed, never an older one or a file from elsewhere."],
       ["Checks", "Each download is checked against the SHA-256 published with the release, and every file in it must stay inside its folder; otherwise nothing is installed."],
-      ["Backup Suite", "Updated in the background by its own installer (as root in a system install, through the control service; no password needed): if a backup is running you choose: stop it and update now (safe; the next run covers the rest) or wait for it, the tests run first, and if anything fails the previous version stays in use. Configuration, credentials, jobs and the resource setup are kept. A Backup Suite older than 1.1 cannot update itself yet: its update runs in a terminal in this window, where sudo asks for your password (type it in the input box; like agentw-gui, the GUI passes what you type to the terminal and keeps nothing)."],
-      ["GUI", "Your own GUI updates itself as your login, without sudo, and restarts; the page reconnects. If the new GUI does not start, the previous one is put back. A system-wide GUI is updated together with Backup Suite."]
+      ["FileStow", "Updated in the background by its own installer (as root in a system install, through the control service; no password needed): if a backup is running you choose: stop it and update now (safe; the next run covers the rest) or wait for it, the tests run first, and if anything fails the previous version stays in use. Configuration, credentials, jobs and the resource setup are kept. A FileStow without the update service cannot update itself yet: its update runs in a terminal in this window, where sudo asks for your password (type it in the input box; like agentw-gui, the GUI passes what you type to the terminal and keeps nothing)."],
+      ["GUI", "Your own GUI updates itself as your login, without sudo, and restarts; the page reconnects. If the new GUI does not start, the previous one is put back. A system-wide GUI is updated together with FileStow."]
     ]
   },
   sources: {
@@ -123,7 +123,7 @@ window.BACKUP_SUITE_HELP = {
   activity: {
     title: "Activity & audit",
     sections: [
-      ["Activity", "Every Backup Suite event: run finished, watchdog actions, profile steps, changing files, schedule changes, GUI actions and tests. Each ntfy notification shows what happened to its push. The bell lists the ntfy notifications on their own."],
+      ["Activity", "Every FileStow event: run finished, watchdog actions, profile steps, changing files, schedule changes, GUI actions and tests. Each ntfy notification shows what happened to its push. The bell lists the ntfy notifications on their own."],
       ["Audit", "Every change made through the GUI (or the control broker): when, by which login, what, and the result. Secrets appear only as [set]."]
     ]
   },
@@ -136,7 +136,7 @@ window.BACKUP_SUITE_HELP = {
   settings: {
     title: "Settings",
     sections: [
-      ["GUI settings", "General, Notifications, Tunnel Manager and GUI resource limits are this GUI's own settings, stored for your login. Backup Suite's own settings are under Admin."]
+      ["GUI settings", "General, Notifications, Tunnel Manager and GUI resource limits are this GUI's own settings, stored for your login. FileStow's own settings are under Admin."]
     ]
   },
   connect: {

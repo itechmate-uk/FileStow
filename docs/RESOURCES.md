@@ -7,9 +7,9 @@ Every intervention is reported through ntfy.
 ## Choosing a profile
 
 ```bash
-sudo /opt/backup-suite/bin/backup-profile.sh show          # list profiles and limits
-sudo /opt/backup-suite/bin/backup-profile.sh choose        # interactive menu
-sudo /opt/backup-suite/bin/backup-profile.sh set slow      # switch directly
+sudo /opt/filestow/bin/backup-profile.sh show          # list profiles and limits
+sudo /opt/filestow/bin/backup-profile.sh choose        # interactive menu
+sudo /opt/filestow/bin/backup-profile.sh set slow      # switch directly
 ```
 
 | Profile | CPU (of one core) | RAM throttle / hard limit | Swap | Tasks | Disk I/O | Uploads / checkers / buffer | API calls/s | Bandwidth | Duration vs moderate |
@@ -54,7 +54,7 @@ A step changes the running backup's CPU, memory throttle, swap, and task limits
 at once. rclone's transfers, checkers, and bandwidth follow from the next
 project. A lower hard memory limit is only applied once usage is comfortably
 below it, so a step-down never forces an OOM kill. The current level is saved
-in `/var/lib/backup-suite/watchdog/adaptive-profile.state`. The next run starts
+in `/var/lib/filestow/watchdog/adaptive-profile.state`. The next run starts
 at that level and steps up when conditions allow. Steps are routine: they are
 listed in the GUI's Activity and the journal, and pushed through ntfy only with
 `WATCHDOG_NOTIFY_PROFILE_STEPS="1"`. Containment, pause, and stop (below) still
@@ -68,7 +68,7 @@ apply at the floor level.
 
 ## Watchdog
 
-`file-backup.service` pulls in `backup-suite-watchdog@file-backup.service`
+`file-backup.service` pulls in `filestow-watchdog@file-backup.service`
 through `Wants=`. The watchdog runs only while a backup runs. Every 5 seconds
 (`WATCHDOG_INTERVAL_SECONDS`) it reads the backup's cgroup counters with shell
 builtins, so it starts no extra processes and uses a few MB of memory. It runs
@@ -126,12 +126,12 @@ The thresholds are `WATCHDOG_*` settings in `global.conf` (see
 
 Files:
 
-- `/var/lib/backup-suite/watchdog/file-backup.service.status`: live values, updated every 15 s while a backup runs
-- `/var/lib/backup-suite/watchdog/history.tsv`: one line per run with duration, peak RAM, non-reclaimable RAM and swap, average and peak CPU, peak tasks, disk I/O, events, outcome, and systemd's result (the newest 500 runs)
-- `/var/lib/backup-suite/watchdog/file-backup.service.last-action`: the most recent stop, which the failure notifier also reports
-- `/var/lib/backup-suite/watchdog/file-backup.service.episode`: the open pressure episode and which notices it has pushed
+- `/var/lib/filestow/watchdog/file-backup.service.status`: live values, updated every 15 s while a backup runs
+- `/var/lib/filestow/watchdog/history.tsv`: one line per run with duration, peak RAM, non-reclaimable RAM and swap, average and peak CPU, peak tasks, disk I/O, events, outcome, and systemd's result (the newest 500 runs)
+- `/var/lib/filestow/watchdog/file-backup.service.last-action`: the most recent stop, which the failure notifier also reports
+- `/var/lib/filestow/watchdog/file-backup.service.episode`: the open pressure episode and which notices it has pushed
 
-Every unit Backup Suite ships caps swap with `MemorySwapMax`: `MemoryMax`
+Every unit FileStow ships caps swap with `MemorySwapMax`: `MemoryMax`
 counts RAM only, and a unit with `MemoryHigh` but unlimited swap is pushed
 into swap without bound instead of reaching its limit. The database units have
 no RAM limit (a large dump must not be killed) but cap swap too. A file backup
@@ -140,13 +140,13 @@ profile without a swap cap is rejected.
 Check it with:
 
 ```bash
-sudo /opt/backup-suite/bin/backup-watchdog.sh file-backup.service --self-test
+sudo /opt/filestow/bin/backup-watchdog.sh file-backup.service --self-test
 journalctl -t backup-watchdog -n 50 --no-pager
 ```
 
 ## Changing files
 
-Before each project sync, Backup Suite lists files modified within the last
+Before each project sync, FileStow lists files modified within the last
 `FILE_ACTIVE_WINDOW_SECONDS` (default 120). These files are probably still
 being written, so they are excluded from that sync with exact, root-anchored
 filters. If rclone still sees a file change while uploading it, the existing
@@ -154,7 +154,7 @@ stability retry also defers the files that changed.
 
 A deferred file keeps its previous remote version and is tried again on the
 next run. Each deferral is counted per file in
-`/var/lib/backup-suite/active-files/`. A file deferred for
+`/var/lib/filestow/active-files/`. A file deferred for
 `FILE_ACTIVE_MAX_DEFERRALS` runs in a row (default 12) triggers an ntfy
 warning that names it, so a file that never settles is never silently left
 out. The warning repeats every `FILE_ACTIVE_MAX_DEFERRALS` runs while the file

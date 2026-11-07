@@ -16,43 +16,43 @@ Current behavior:
 Run file backup manually:
 
 ```bash
-/opt/backup-suite/bin/file-backup.sh
+/opt/filestow/bin/file-backup.sh
 ```
 
 In user mode, use the user install path instead, for example:
 
 ```bash
-~/.local/share/backup-suite/bin/file-backup.sh
+~/.local/share/filestow/bin/file-backup.sh
 ```
 
 For a manual run with live terminal output and compact `rclone` stats:
 
 ```bash
-/opt/backup-suite/bin/file-backup.sh --verbose
+/opt/filestow/bin/file-backup.sh --verbose
 ```
 
 Run database backup manually:
 
 ```bash
-/opt/backup-suite/bin/database-backup.sh
+/opt/filestow/bin/database-backup.sh
 ```
 
 For a manual run with live terminal output and compact `rclone` stats:
 
 ```bash
-/opt/backup-suite/bin/database-backup.sh --verbose
+/opt/filestow/bin/database-backup.sh --verbose
 ```
 
 Run database monitor manually:
 
 ```bash
-/opt/backup-suite/bin/database-size-check.sh
+/opt/filestow/bin/database-size-check.sh
 ```
 
 For a manual run with live terminal output:
 
 ```bash
-/opt/backup-suite/bin/database-size-check.sh --verbose
+/opt/filestow/bin/database-size-check.sh --verbose
 ```
 
 By default, manual runs log to the journal. `--verbose` mirrors output to the terminal and shows aggregate `rclone` progress stats such as transferred amount, percent, speed, and ETA without the noisier per-file output. The manual stats refresh interval is 10 seconds.
@@ -65,31 +65,31 @@ If logs show Google Drive OAuth errors such as:
 oauth2: "invalid_grant" "Token has been expired or revoked."
 ```
 
-reconnect the exact rclone config file used by Backup Suite. In system mode the service normally uses:
+reconnect the exact rclone config file used by FileStow. In system mode the service normally uses:
 
 ```text
-/etc/backup-suite/rclone.conf
+/etc/filestow/rclone.conf
 ```
 
 Confirm from the active config:
 
 ```bash
-sudo grep -E 'INSTALL_MODE|RCLONE_CONFIG_PATH|RCLONE_REMOTE_ROOT' /etc/backup-suite/global.conf
+sudo grep -E 'INSTALL_MODE|RCLONE_CONFIG_PATH|RCLONE_REMOTE_ROOT' /etc/filestow/global.conf
 ```
 
 Test the same config path that the service uses:
 
 ```bash
-sudo rclone --config /etc/backup-suite/rclone.conf lsd "gdrive,root_folder_id=YOUR_FOLDER_ID:"
+sudo rclone --config /etc/filestow/rclone.conf lsd "gdrive,root_folder_id=YOUR_FOLDER_ID:"
 ```
 
 Reconnect it if needed:
 
 ```bash
-sudo rclone --config /etc/backup-suite/rclone.conf config reconnect gdrive:
+sudo rclone --config /etc/filestow/rclone.conf config reconnect gdrive:
 ```
 
-Do not rely on plain `sudo rclone lsd ...` or plain `sudo rclone config reconnect gdrive:` unless `RCLONE_CONFIG_PATH` really points to root's default rclone config. The Backup Suite scripts run rclone with `--config "$RCLONE_CONFIG_PATH"`, so reconnecting the wrong config leaves the timer/service broken.
+Do not rely on plain `sudo rclone lsd ...` or plain `sudo rclone config reconnect gdrive:` unless `RCLONE_CONFIG_PATH` really points to root's default rclone config. The FileStow scripts run rclone with `--config "$RCLONE_CONFIG_PATH"`, so reconnecting the wrong config leaves the timer/service broken.
 
 ## File Backup Behavior
 
@@ -116,7 +116,7 @@ The file-backup service is limited independently of the rest of the host. The CP
 - `CPUQuota=50%`, `CPUWeight=10`, `Nice=15`
 - `IOWeight=10`, `IOSchedulingClass=idle`
 - `MemoryHigh=512M`, `MemoryMax=1G`, `MemorySwapMax=256M`, `TasksMax=64`
-- `OOMPolicy=stop`, and `backup-suite-watchdog@file-backup.service` runs alongside every backup
+- `OOMPolicy=stop`, and `filestow-watchdog@file-backup.service` runs alongside every backup
 - `CPUAccounting=true`, `MemoryAccounting=true`, `IOAccounting=true`
 - `RuntimeMaxSec=6h`, `TimeoutStopSec=2min`, `KillMode=control-group`
 - `Restart=no`; the `OnFailure` notification unit also has `Restart=no`
@@ -179,7 +179,7 @@ The runner performs preflight tests, saves protected config/unit backups, deploy
 To restore links, include `--links` on the remote-to-local operation:
 
 ```bash
-rclone copy --config /etc/backup-suite/rclone.conf --links REMOTE:PATH /restore/path
+rclone copy --config /etc/filestow/rclone.conf --links REMOTE:PATH /restore/path
 ```
 
 Without `--links`, `.rclonelink` records are not recreated as symlinks.
@@ -218,19 +218,19 @@ Defaults:
 List all databases:
 
 ```bash
-mysql --defaults-extra-file=/etc/backup-suite/mysql-profiles/default.cnf -e "SHOW DATABASES;"
+mysql --defaults-extra-file=/etc/filestow/mysql-profiles/default.cnf -e "SHOW DATABASES;"
 ```
 
 List non-system databases only:
 
 ```bash
-mysql --defaults-extra-file=/etc/backup-suite/mysql-profiles/default.cnf --batch --skip-column-names -e "SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('information_schema','mysql','performance_schema','sys') ORDER BY schema_name;"
+mysql --defaults-extra-file=/etc/filestow/mysql-profiles/default.cnf --batch --skip-column-names -e "SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('information_schema','mysql','performance_schema','sys') ORDER BY schema_name;"
 ```
 
 Show database sizes in MB:
 
 ```bash
-mysql --defaults-extra-file=/etc/backup-suite/mysql-profiles/default.cnf --batch --skip-column-names -e "SELECT table_schema, ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb FROM information_schema.tables GROUP BY table_schema ORDER BY size_mb DESC;"
+mysql --defaults-extra-file=/etc/filestow/mysql-profiles/default.cnf --batch --skip-column-names -e "SELECT table_schema, ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb FROM information_schema.tables GROUP BY table_schema ORDER BY size_mb DESC;"
 ```
 
 ## Systemd Units
@@ -243,7 +243,7 @@ Installed system services:
 - `database-backup.timer`
 - `database-size-check.service`
 - `database-size-check.timer`
-- `backup-suite-watchdog@file-backup.service` (started by `file-backup.service`, exits with it)
+- `filestow-watchdog@file-backup.service` (started by `file-backup.service`, exits with it)
 
 Check timers:
 
@@ -293,7 +293,7 @@ systemd-cgls --unit file-backup.service --no-pager
 systemctl show file-backup.service -p CPUUsageNSec -p MemoryPeak -p IOReadBytes -p IOWriteBytes -p TasksCurrent -p NRestarts
 ```
 
-The production migration runner retains its sampled containment/resource report under `/var/lib/backup-suite/validation/`.
+The production migration runner retains its sampled containment/resource report under `/var/lib/filestow/validation/`.
 
 Journal output:
 
@@ -306,17 +306,17 @@ journalctl -t backup-db-monitor -f
 Bounded durable history is also kept below the configured state directory:
 
 ```text
-/var/lib/backup-suite/logs/backup-file.log
-/var/lib/backup-suite/logs/backup-db.log
-/var/lib/backup-suite/logs/backup-db-monitor.log
-/var/lib/backup-suite/failures/
+/var/lib/filestow/logs/backup-file.log
+/var/lib/filestow/logs/backup-db.log
+/var/lib/filestow/logs/backup-db-monitor.log
+/var/lib/filestow/failures/
 ```
 
 Live resource use of a running backup and per-run resource history:
 
 ```text
-/var/lib/backup-suite/watchdog/file-backup.service.status
-/var/lib/backup-suite/watchdog/history.tsv
+/var/lib/filestow/watchdog/file-backup.service.status
+/var/lib/filestow/watchdog/history.tsv
 ```
 
 The `failures/` records are created before ntfy delivery, so a network or notification failure does not erase the local diagnostic record.

@@ -1,9 +1,9 @@
 [Unit]
-Description=Backup Suite control socket for the GUI (system mode)
+Description=FileStow control socket for the GUI (system mode)
 Documentation=file://__INSTALL_DIR__/README.md
 
 [Socket]
-ListenStream=/run/backup-suite/control.sock
+ListenStream=/run/filestow/control.sock
 SocketUser=root
 SocketGroup=__GUI_GROUP__
 SocketMode=0660

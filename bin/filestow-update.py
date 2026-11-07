@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Backup Suite updater: finds, downloads, verifies and installs a release.
+"""FileStow updater: finds, downloads, verifies and installs a release.
 
 Releases come only from this project's GitHub releases. Only the latest
 published release (not a draft or a pre-release) can be installed, and only
@@ -7,18 +7,18 @@ when it is newer than the installed version. The archive must match the
 SHA-256 published with it, and every file in it must stay inside its
 top-level folder.
 
-    backup-suite-update.py check  --current VERSION
-    backup-suite-update.py apply  --version VERSION [--state-dir DIR] [--stop-running]
-        updates Backup Suite: runs the release's install.sh (as root: the
+    filestow-update.py check  --current VERSION
+    filestow-update.py apply  --version VERSION [--state-dir DIR] [--stop-running]
+        updates FileStow: runs the release's install.sh (as root: the
         system install and a system-wide GUI; as a user: the user install)
-    backup-suite-update.py gui-apply --version VERSION [--state-dir DIR]
-        updates this login's GUI: runs the release's backup-suite-gui-server install
-    backup-suite-update.py follow --version VERSION [--state-dir DIR]
+    filestow-update.py gui-apply --version VERSION [--state-dir DIR]
+        updates this login's GUI: runs the release's filestow-gui-server install
+    filestow-update.py follow --version VERSION [--state-dir DIR]
         prints that update's log as it grows, until it ends
-    backup-suite-update.py status [--state-dir DIR]
+    filestow-update.py status [--state-dir DIR]
 
-Without --state-dir: /var/lib/backup-suite/updates as root, else
-~/.local/state/backup-suite/updates (Backup Suite's default state folders).
+Without --state-dir: /var/lib/filestow/updates as root, else
+~/.local/state/filestow/updates (FileStow's default state folders).
 
 Every command prints one JSON object. Standard library only.
 """
@@ -41,9 +41,9 @@ import urllib.request
 REPOSITORY = "itechmate-uk/FileStow"
 # Overridable for tests only; a GUI can never pass them (the control script runs
 # with the broker unit's environment, and the GUI starts this with its own).
-LATEST_URL = os.environ.get("BACKUP_SUITE_UPDATE_LATEST_URL",
+LATEST_URL = os.environ.get("FILESTOW_UPDATE_LATEST_URL",
                             "https://api.github.com/repos/%s/releases/latest" % REPOSITORY)
-DOWNLOAD_BASE = os.environ.get("BACKUP_SUITE_UPDATE_DOWNLOAD_BASE",
+DOWNLOAD_BASE = os.environ.get("FILESTOW_UPDATE_DOWNLOAD_BASE",
                                "https://github.com/%s/releases/download/" % REPOSITORY)
 VERSION_RE = re.compile(r"^(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,5})$")
 MAX_ARCHIVE_BYTES = 100 * 1024 * 1024
@@ -51,7 +51,7 @@ MAX_SMALL_BYTES = 1024 * 1024
 HTTP_TIMEOUT = 30
 KEEP_RELEASES = 2
 LOG_TAIL_BYTES = 12000
-USER_AGENT = "backup-suite-updater"
+USER_AGENT = "filestow-updater"
 
 
 class UpdateError(Exception):
@@ -99,7 +99,7 @@ def latest_release():
     version = tag[1:] if tag.startswith("v") else ""
     if not parse_version(version):
         raise UpdateError("The latest release tag %r is not a version (vX.Y.Z)." % tag)
-    archive_name = "backup-suite-%s.tar.gz" % version
+    archive_name = "filestow-%s.tar.gz" % version
     wanted = {archive_name: None, archive_name + ".sha256": None}
     prefix = "%s%s/" % (DOWNLOAD_BASE, tag)
     for asset in release.get("assets") or []:
@@ -187,8 +187,8 @@ def _remove(path):
 
 
 def extract_release(archive, version, work_dir):
-    """Extracts into work_dir/backup-suite-<version>; refuses anything outside it."""
-    top = "backup-suite-%s" % version
+    """Extracts into work_dir/filestow-<version>; refuses anything outside it."""
+    top = "filestow-%s" % version
     destination = os.path.join(work_dir, top)
     staging = destination + ".extracting"
     shutil.rmtree(staging, ignore_errors=True)
@@ -300,7 +300,7 @@ def run_logged(command, log_handle, env=None):
     return process.returncode
 
 
-def gui_came_up(log_handle, unit="backup-suite-gui-4337.service", seconds=20):
+def gui_came_up(log_handle, unit="filestow-gui-4337.service", seconds=20):
     """True once this login's GUI unit is active again after the reinstall."""
     deadline = time.time() + seconds
     while time.time() < deadline:
@@ -356,15 +356,15 @@ def apply_update(version, state_dir, what, stop_running=False):
             log_handle.flush()
             status["step"] = "install"
             write_status(state_dir, status)
-            if what == "backup-suite":
+            if what == "filestow":
                 command = ["bash", os.path.join(tree, "install.sh"), "--no-user-gui"]
                 if stop_running:
                     command.append("--stop-running")
                 code = run_logged(command, log_handle)
             else:
-                code = run_logged(["bash", os.path.join(tree, "gui", "scripts", "backup-suite-gui-server"), "install"], log_handle)
+                code = run_logged(["bash", os.path.join(tree, "gui", "scripts", "filestow-gui-server"), "install"], log_handle)
                 if code == 0 and not gui_came_up(log_handle):
-                    run_logged(["bash", os.path.join(tree, "gui", "scripts", "backup-suite-gui-server"), "rollback"], log_handle)
+                    run_logged(["bash", os.path.join(tree, "gui", "scripts", "filestow-gui-server"), "rollback"], log_handle)
                     raise UpdateError("The new GUI did not start; the previous GUI was put back.")
             if code != 0:
                 raise UpdateError("The installer stopped with exit code %d; see the log. The previous version stays in use." % code)
@@ -393,9 +393,9 @@ def follow(version, state_dir, wait_seconds=None):
     when the update finished, 1 when it failed or never started.
     """
     if wait_seconds is None:
-        wait_seconds = int(os.environ.get("BACKUP_SUITE_UPDATE_FOLLOW_WAIT", "60"))
+        wait_seconds = int(os.environ.get("FILESTOW_UPDATE_FOLLOW_WAIT", "60"))
     started = time.time()
-    log_path = os.path.join(state_dir, "update-backup-suite-%s.log" % version)
+    log_path = os.path.join(state_dir, "update-filestow-%s.log" % version)
     status = {}
     while time.time() - started < wait_seconds:
         status = read_status(state_dir)
@@ -403,7 +403,7 @@ def follow(version, state_dir, wait_seconds=None):
             break
         time.sleep(1)
     else:
-        print("The update did not start; see: journalctl -u backup-suite-update.service", flush=True)
+        print("The update did not start; see: journalctl -u filestow-update.service", flush=True)
         return {"state": "failed", "version": version, "error": "did not start"}
     offset = 0
     while True:
@@ -426,15 +426,15 @@ def follow(version, state_dir, wait_seconds=None):
 
 
 def default_state_dir():
-    """Backup Suite's own update folder: the system one as root, else the user's."""
+    """FileStow's own update folder: the system one as root, else the user's."""
     if os.getuid() == 0:
-        return "/var/lib/backup-suite/updates"
+        return "/var/lib/filestow/updates"
     base = os.environ.get("XDG_STATE_HOME") or os.path.join(os.path.expanduser("~"), ".local", "state")
-    return os.path.join(base, "backup-suite", "updates")
+    return os.path.join(base, "filestow", "updates")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Backup Suite updater")
+    parser = argparse.ArgumentParser(description="FileStow updater")
     sub = parser.add_subparsers(dest="command", required=True)
     check_parser = sub.add_parser("check")
     check_parser.add_argument("--current", default="")
@@ -457,7 +457,7 @@ def main():
         if args.command == "check":
             result = check(args.current)
         elif args.command == "apply":
-            result = apply_update(args.version, args.state_dir, "backup-suite", args.stop_running)
+            result = apply_update(args.version, args.state_dir, "filestow", args.stop_running)
         elif args.command == "gui-apply":
             result = apply_update(args.version, args.state_dir, "gui")
         elif args.command == "follow":

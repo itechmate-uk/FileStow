@@ -1,10 +1,10 @@
 "use strict";
 
-// GUI-only settings (not Backup Suite's global.conf): where they live, their
+// GUI-only settings (not FileStow's global.conf): where they live, their
 // defaults, and the bounds every saved value is clamped to.
 //
-// Config:  ${BACKUP_SUITE_GUI_CONFIG_DIR:-${XDG_CONFIG_HOME:-~/.config}/backup-suite-gui}/config.json
-// State:   ${BACKUP_SUITE_GUI_STATE_DIR:-${XDG_STATE_HOME:-~/.local/state}/backup-suite-gui}/
+// Config:  ${FILESTOW_GUI_CONFIG_DIR:-${XDG_CONFIG_HOME:-~/.config}/filestow-gui}/config.json
+// State:   ${FILESTOW_GUI_STATE_DIR:-${XDG_STATE_HOME:-~/.local/state}/filestow-gui}/
 
 const fs = require("fs");
 const os = require("os");
@@ -34,15 +34,15 @@ function homeDir(env = process.env) {
 }
 
 function configDir(env = process.env) {
-  if (String(env.BACKUP_SUITE_GUI_CONFIG_DIR || "").trim()) return path.resolve(env.BACKUP_SUITE_GUI_CONFIG_DIR);
+  if (String(env.FILESTOW_GUI_CONFIG_DIR || "").trim()) return path.resolve(env.FILESTOW_GUI_CONFIG_DIR);
   const base = String(env.XDG_CONFIG_HOME || "").trim() || path.join(homeDir(env), ".config");
-  return path.join(base, "backup-suite-gui");
+  return path.join(base, "filestow-gui");
 }
 
 function stateDir(env = process.env) {
-  if (String(env.BACKUP_SUITE_GUI_STATE_DIR || "").trim()) return path.resolve(env.BACKUP_SUITE_GUI_STATE_DIR);
+  if (String(env.FILESTOW_GUI_STATE_DIR || "").trim()) return path.resolve(env.FILESTOW_GUI_STATE_DIR);
   const base = String(env.XDG_STATE_HOME || "").trim() || path.join(homeDir(env), ".local", "state");
-  return path.join(base, "backup-suite-gui");
+  return path.join(base, "filestow-gui");
 }
 
 function defaults() {

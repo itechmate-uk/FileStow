@@ -8,8 +8,8 @@
 // - tcp:    127.0.0.1:PORT. Every local account on the server can reach it.
 // - both:   the socket and the TCP port.
 //
-// Mode: BACKUP_SUITE_GUI_LISTEN, else the saved setting, else socket.
-// Socket: BACKUP_SUITE_GUI_SOCKET, else ${XDG_RUNTIME_DIR:-~/.local/state}/backup-suite-gui/gui-<instance>.sock.
+// Mode: FILESTOW_GUI_LISTEN, else the saved setting, else socket.
+// Socket: FILESTOW_GUI_SOCKET, else ${XDG_RUNTIME_DIR:-~/.local/state}/filestow-gui/gui-<instance>.sock.
 
 const fs = require("fs");
 const net = require("net");
@@ -27,10 +27,10 @@ function normalizeListenMode(value) {
 }
 
 function defaultSocketPath(env = process.env) {
-  if (String(env.BACKUP_SUITE_GUI_SOCKET || "").trim()) return path.resolve(String(env.BACKUP_SUITE_GUI_SOCKET).trim());
+  if (String(env.FILESTOW_GUI_SOCKET || "").trim()) return path.resolve(String(env.FILESTOW_GUI_SOCKET).trim());
   const base = String(env.XDG_RUNTIME_DIR || "").trim()
     || path.join(String(env.HOME || "").trim() || os.homedir(), ".local", "state");
-  return path.join(base, "backup-suite-gui", `gui-${INSTANCE}.sock`);
+  return path.join(base, "filestow-gui", `gui-${INSTANCE}.sock`);
 }
 
 // Tunnel Manager and OpenSSH need an absolute path without spaces or colons.
@@ -39,10 +39,10 @@ function socketPathForwardable(socketPath) {
 }
 
 function resolveListen({ env = process.env, settings } = {}) {
-  const envMode = normalizeListenMode(env.BACKUP_SUITE_GUI_LISTEN);
+  const envMode = normalizeListenMode(env.FILESTOW_GUI_LISTEN);
   const storedMode = normalizeListenMode(settings?.tunnel?.listenMode);
   const mode = envMode || storedMode || "socket";
-  const envPort = Number(env.BACKUP_SUITE_GUI_PORT || 0);
+  const envPort = Number(env.FILESTOW_GUI_PORT || 0);
   const port = envPort > 0 ? envPort : Number(settings?.tunnel?.tcpPort || INSTANCE);
   const socketPath = defaultSocketPath(env);
   return {
@@ -57,8 +57,8 @@ function resolveListen({ env = process.env, settings } = {}) {
     tcp: mode !== "socket",
     forwardable: socketPathForwardable(socketPath),
     // A system-wide GUI shares its socket with the group of GUI admins.
-    shared: Boolean(String(env.BACKUP_SUITE_GUI_SOCKET_GROUP || "").trim()),
-    system: String(env.BACKUP_SUITE_GUI_SYSTEM || "") === "1",
+    shared: Boolean(String(env.FILESTOW_GUI_SOCKET_GROUP || "").trim()),
+    system: String(env.FILESTOW_GUI_SYSTEM || "") === "1",
     warning: mode === "socket" ? "" : TCP_WARNING
   };
 }

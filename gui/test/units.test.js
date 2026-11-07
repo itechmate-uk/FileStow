@@ -49,13 +49,13 @@ test("Host and Origin checks accept any local port and refuse everything else", 
 test("the Tunnel Manager bundle uses the real socket, unit and saved backend", () => {
   const settings = settingsStore.normalize({ tunnel: { backendId: "user@137.74.7.68" } });
   const listen = listenConfig.resolveListen({ env: { XDG_RUNTIME_DIR: "/run/user/1234" }, settings });
-  const toml = bundle.tunnelManagerToml(bundle.profile(settings, listen, "backup-suite-gui-4337.service"));
+  const toml = bundle.tunnelManagerToml(bundle.profile(settings, listen, "filestow-gui-4337.service"));
   assert.match(toml, /^backend_id = "user@137\.74\.7\.68"$/m);
-  assert.match(toml, /^remote_socket = "\/run\/user\/1234\/backup-suite-gui\/gui-4337\.sock"$/m);
-  assert.match(toml, /^expect_app_id = "backup-suite-gui"$/m);
+  assert.match(toml, /^remote_socket = "\/run\/user\/1234\/filestow-gui\/gui-4337\.sock"$/m);
+  assert.match(toml, /^expect_app_id = "filestow-gui"$/m);
   assert.match(toml, /^minimum_severity = "warning"$/m);
   assert.match(toml, /^provider = "systemd-user"$/m);
-  assert.match(toml, /^unit = "backup-suite-gui-4337\.service"$/m);
+  assert.match(toml, /^unit = "filestow-gui-4337\.service"$/m);
   assert.match(toml, /^policy = "start-if-stopped"$/m);
   assert.match(toml, /^preferred_port = 14337$/m);
   assert.match(toml, /^port_max = 14437$/m);
@@ -65,7 +65,7 @@ test("the Tunnel Manager bundle uses the real socket, unit and saved backend", (
 
   const tcpSettings = settingsStore.normalize({ tunnel: { listenMode: "tcp", tcpPort: 4400 } });
   const tcpListen = listenConfig.resolveListen({ env: { XDG_RUNTIME_DIR: "/run/user/1234" }, settings: tcpSettings });
-  const tcpToml = bundle.tunnelManagerToml(bundle.profile(tcpSettings, tcpListen, "backup-suite-gui-4337.service"));
+  const tcpToml = bundle.tunnelManagerToml(bundle.profile(tcpSettings, tcpListen, "filestow-gui-4337.service"));
   assert.match(tcpToml, /^remote_host = "127\.0\.0\.1"$/m);
   assert.match(tcpToml, /^remote_port = 4400$/m);
   assert.doesNotMatch(tcpToml, /remote_socket/);
@@ -75,27 +75,27 @@ test("the Tunnel Manager bundle uses the real socket, unit and saved backend", (
 test("launchers and manual line forward to the socket and check the app id", () => {
   const settings = settingsStore.normalize({ tunnel: { backendId: "user@black" } });
   const listen = listenConfig.resolveListen({ env: { XDG_RUNTIME_DIR: "/run/user/1000" }, settings });
-  const profile = bundle.profile(settings, listen, "backup-suite-gui-4337.service");
+  const profile = bundle.profile(settings, listen, "filestow-gui-4337.service");
   const info = bundle.connectInstructions(profile, settings);
-  assert.strictEqual(info.manual.ssh, "ssh -N -L 127.0.0.1:14337:/run/user/1000/backup-suite-gui/gui-4337.sock user@black");
+  assert.strictEqual(info.manual.ssh, "ssh -N -L 127.0.0.1:14337:/run/user/1000/filestow-gui/gui-4337.sock user@black");
   for (const kind of ["windows", "mac", "linux", "android"]) {
     const file = bundle.connectFile(kind, profile);
-    assert.ok(file.body.includes("/run/user/1000/backup-suite-gui/gui-4337.sock"), kind);
+    assert.ok(file.body.includes("/run/user/1000/filestow-gui/gui-4337.sock"), kind);
     assert.ok(file.body.includes("user@black"), kind);
-    if (kind !== "android") assert.ok(file.body.includes("backup-suite-gui"), kind);
+    if (kind !== "android") assert.ok(file.body.includes("filestow-gui"), kind);
   }
   assert.strictEqual(bundle.connectFile("evil", profile), null);
   // Every way agentw-gui offers: profile, launchers with how-to, phone, manual, CLI.
   assert.strictEqual(info.ssh_target, "user@black");
   assert.deepStrictEqual(info.scripts.map((script) => script.platform), ["windows", "mac", "linux", "android"]);
   for (const script of info.scripts) assert.ok(script.how_to.length > 10, script.platform);
-  assert.match(info.scripts.find((script) => script.platform === "mac").how_to, /chmod \+x backup-suite-gui-mac\.sh/);
+  assert.match(info.scripts.find((script) => script.platform === "mac").how_to, /chmod \+x filestow-gui-mac\.sh/);
   assert.match(info.mobile.android.title, /Termux/);
   assert.match(info.mobile.ios.title, /Blink/);
   assert.match(info.mobile.general.join(" "), /real OpenSSH/);
-  assert.strictEqual(info.cli.bundle, "gui/scripts/backup-suite-gui-server bundle --backend user@black");
-  const text = bundle.connectText(info, { toml: "/x/backup-suite-gui-tunnel-manager.toml" });
-  for (const part of ["1. Tunnel Manager", "/x/backup-suite-gui-tunnel-manager.toml", "2. Launcher scripts", "3. Phone or tablet", "4. Manual", info.manual.ssh]) {
+  assert.strictEqual(info.cli.bundle, "gui/scripts/filestow-gui-server bundle --backend user@black");
+  const text = bundle.connectText(info, { toml: "/x/filestow-gui-tunnel-manager.toml" });
+  for (const part of ["1. Tunnel Manager", "/x/filestow-gui-tunnel-manager.toml", "2. Launcher scripts", "3. Phone or tablet", "4. Manual", info.manual.ssh]) {
     assert.ok(text.includes(part), part);
   }
   // tcp mode: any SSH app with port forwarding works on a phone.
@@ -122,7 +122,7 @@ test("mode detection: user, system, both and neither", () => {
   try {
     const env = { ...fixture.env };
     const socketPath = path.join(fixture.root, "broker.sock");
-    env.BACKUP_SUITE_CONTROL_SOCKET = socketPath;
+    env.FILESTOW_CONTROL_SOCKET = socketPath;
     assert.strictEqual(detectMode("auto", env).mode, "user");
     fs.writeFileSync(socketPath, "");
     const both = detectMode("auto", env);
@@ -174,7 +174,7 @@ test("broker backend speaks one JSON line over the socket and maps refusals", as
       const request = JSON.parse(buffer);
       received.push(request);
       const reply = request.verb === "backup.stop"
-        ? { ok: false, error: { code: "forbidden", message: "uid 1 is not a member of backup-suite-gui." } }
+        ? { ok: false, error: { code: "forbidden", message: "uid 1 is not a member of filestow-gui." } }
         : { ok: true, data: { echo: request.verb, session: request.session } };
       connection.end(`${JSON.stringify(reply)}\n`);
     });
@@ -182,7 +182,7 @@ test("broker backend speaks one JSON line over the socket and maps refusals", as
   await new Promise((resolve) => server.listen(socketPath, resolve));
   try {
     fs.rmSync(path.join(fixture.configDir, "global.conf"));
-    const client = new ControlClient({ env: { ...fixture.env, BACKUP_SUITE_CONTROL_SOCKET: socketPath } });
+    const client = new ControlClient({ env: { ...fixture.env, FILESTOW_CONTROL_SOCKET: socketPath } });
     const data = await client.call("events.stat", {}, { session: "gui-abc" });
     assert.deepStrictEqual(data, { echo: "events.stat", session: "gui-abc" });
     await assert.rejects(client.call("backup.stop"), { code: "forbidden" });
@@ -270,7 +270,7 @@ test("Tunnel Manager events: baseline, delivery once, idempotent ack, TTL, no re
 test("the socket directory is tightened to 0700, and someone else's directory is refused", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bsg-listen-"));
   try {
-    const socketDir = path.join(dir, "backup-suite-gui");
+    const socketDir = path.join(dir, "filestow-gui");
     fs.mkdirSync(socketDir, { mode: 0o755 });
     fs.chmodSync(socketDir, 0o755);
     const prepared = listenConfig.prepareSocketDirectory(socketDir);

@@ -1,0 +1,18 @@
+[Unit]
+Description=FileStow GUI watchdog (instance __INSTANCE__)
+BindsTo=filestow-gui-__INSTANCE__.service
+After=filestow-gui-__INSTANCE__.service
+
+[Service]
+Type=simple
+ExecStart=__GUI_DIR__/scripts/filestow-gui-watchdog run
+Restart=on-failure
+RestartSec=10
+Nice=5
+MemoryMax=24M
+MemorySwapMax=8M
+TasksMax=8
+SyslogIdentifier=filestow-gui-watchdog
+
+[Install]
+WantedBy=filestow-gui-__INSTANCE__.service

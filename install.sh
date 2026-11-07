@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Installs or upgrades Backup Suite from a release (or a checkout), GUI included.
+# Installs or upgrades FileStow from a release (or a checkout), GUI included.
 #
 #   sudo ./install.sh     system install: backups run as root and may back up any
 #                         folder under FILE_JOB_SOURCE_ROOTS (/home /var/www /srv /opt)
@@ -28,18 +28,18 @@ fi
 
 SOURCE_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 VERSION=$(cat "$SOURCE_DIR/VERSION" 2>/dev/null || echo unknown)
-SYSTEM_INSTALL_DIR="/opt/backup-suite"
-SYSTEM_CANONICAL_DIR="/opt/backup-suite-src"
-SYSTEM_CONFIG_DIR="/etc/backup-suite"
-USER_CANONICAL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/backup-suite-src"
-USER_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/backup-suite"
+SYSTEM_INSTALL_DIR="/opt/filestow"
+SYSTEM_CANONICAL_DIR="/opt/filestow-src"
+SYSTEM_CONFIG_DIR="/etc/filestow"
+USER_CANONICAL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/filestow-src"
+USER_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/filestow"
 NODE_MIN_MAJOR=18
 
 INSTALL_GUI=1
 USER_GUI=1
 SYSTEM_GUI=0
 GUI_ONLY=0
-SYSTEM_GUI_UNIT="/etc/systemd/system/backup-suite-gui.service"
+SYSTEM_GUI_UNIT="/etc/systemd/system/filestow-gui.service"
 INSTALL_DEPS=0
 DRY_RUN=0
 GUI_ADMINS=()
@@ -49,7 +49,7 @@ FRESH_INSTALL=0
 
 usage() {
     cat <<'EOF'
-Usage: sudo ./install.sh [options]     the recommended setup: Backup Suite for the
+Usage: sudo ./install.sh [options]     the recommended setup: FileStow for the
                                        whole server (as root) and a GUI that runs
                                        as your login (no root)
        sudo ./install.sh --gui-system  optional: one shared GUI service instead
@@ -57,17 +57,17 @@ Usage: sudo ./install.sh [options]     the recommended setup: Backup Suite for t
                                        (your own files only)
        ./install.sh --gui-only         only the GUI, for your login (no sudo)
 
-Installs Backup Suite and its browser GUI, or upgrades an existing install
+Installs FileStow and its browser GUI, or upgrades an existing install
 (configuration, credentials and resource setup are kept). The GUI never runs
 as root: it is a user service of the admin login, or with --gui-system one
-system service run by the unprivileged account backup-suite-gui.
+system service run by the unprivileged account filestow-gui.
 
 Options:
   --gui-admin LOGIN  a login that may use the GUI (system install; repeatable;
                      default: the user who ran sudo). The first one gets its
                      own GUI service, unless --gui-system.
   --gui-system       one GUI for the whole server (system service, shared by the
-                     members of group backup-suite-gui) instead of a per-login GUI
+                     members of group filestow-gui) instead of a per-login GUI
   --gui-only         install or update only the GUI
   --no-gui           do not install the GUI
   --no-user-gui      do not install a per-login GUI (a system-wide GUI that is
@@ -86,11 +86,11 @@ EOF
 }
 
 log() {
-    printf '[backup-suite-install] %s\n' "$*"
+    printf '[filestow-install] %s\n' "$*"
 }
 
 die() {
-    printf '[backup-suite-install] ERROR: %s\n' "$*" >&2
+    printf '[filestow-install] ERROR: %s\n' "$*" >&2
     exit 1
 }
 
@@ -126,7 +126,7 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
-for required in setup.sh production-deploy.sh bin/common.sh bin/backup-control.py config/global.conf.example gui/server.js gui/scripts/backup-suite-gui-server; do
+for required in setup.sh production-deploy.sh bin/common.sh bin/backup-control.py config/global.conf.example gui/server.js gui/scripts/filestow-gui-server; do
     [ -e "$SOURCE_DIR/$required" ] || die "$SOURCE_DIR/$required is missing; extract the whole release archive and run install.sh from it."
 done
 
@@ -144,7 +144,7 @@ node_major() {
 
 find_node() {
     local candidate
-    for candidate in "${BACKUP_SUITE_GUI_NODE:-}" /usr/bin/node /usr/local/bin/node "$(command -v node 2>/dev/null || true)"; do
+    for candidate in "${FILESTOW_GUI_NODE:-}" /usr/bin/node /usr/local/bin/node "$(command -v node 2>/dev/null || true)"; do
         [ -n "$candidate" ] && [ -x "$candidate" ] || continue
         if [ "$(node_major "$candidate")" -ge "$NODE_MIN_MAJOR" ]; then
             printf '%s' "$candidate"
@@ -186,7 +186,7 @@ check_packages() {
     local name
 
     for name in bash systemctl install sed awk find; do
-        command -v "$name" >/dev/null 2>&1 || die "Required command not found: $name (Backup Suite needs a systemd Linux host)."
+        command -v "$name" >/dev/null 2>&1 || die "Required command not found: $name (FileStow needs a systemd Linux host)."
     done
     mapfile -t missing < <(missing_packages | sed '/^$/d')
     [ "${#missing[@]}" -gt 0 ] || return 0
@@ -262,7 +262,7 @@ copy_release() {
 fix_modes() {
     local tree="$1"
     chmod 755 "$tree/install.sh" "$tree/setup.sh" "$tree/production-deploy.sh" "$tree/production-file-backup-migrate.sh" \
-        "$tree"/bin/*.sh "$tree"/bin/*.py "$tree"/gui/scripts/backup-suite-gui-server "$tree"/gui/scripts/backup-suite-gui-watchdog \
+        "$tree"/bin/*.sh "$tree"/bin/*.py "$tree"/gui/scripts/filestow-gui-server "$tree"/gui/scripts/filestow-gui-watchdog \
         "$tree/tests/run.sh" 2>/dev/null || true
 }
 
@@ -286,24 +286,24 @@ install_gui_as() {
             sleep 1
             waited=$((waited + 1))
         done
-        [ -S "$runtime_dir/bus" ] || die "The systemd user manager of $login did not start. Log in as $login and run: $gui_dir/scripts/backup-suite-gui-server install"
+        [ -S "$runtime_dir/bus" ] || die "The systemd user manager of $login did not start. Log in as $login and run: $gui_dir/scripts/filestow-gui-server install"
     fi
     runuser -u "$login" -- env -i HOME="$home" USER="$login" LOGNAME="$login" PATH="/usr/local/bin:/usr/bin:/bin" \
         XDG_RUNTIME_DIR="$runtime_dir" DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime_dir/bus" \
-        ${BACKUP_SUITE_GUI_NODE:+BACKUP_SUITE_GUI_NODE="$BACKUP_SUITE_GUI_NODE"} \
-        bash "$gui_dir/scripts/backup-suite-gui-server" install
+        ${FILESTOW_GUI_NODE:+FILESTOW_GUI_NODE="$FILESTOW_GUI_NODE"} \
+        bash "$gui_dir/scripts/filestow-gui-server" install
 }
 
 # A GUI admin must be in the broker's group; the socket's ACL lets a running
 # GUI connect at once (a new group membership alone needs a new login).
 grant_broker_access() {
     local login="$1"
-    getent group backup-suite-gui >/dev/null || return 0
-    if ! id -nG "$login" | tr ' ' '\n' | grep -Fxq backup-suite-gui; then
-        usermod -a -G backup-suite-gui "$login"
-        log "Added $login to backup-suite-gui, so its GUI may use the control broker."
+    getent group filestow-gui >/dev/null || return 0
+    if ! id -nG "$login" | tr ' ' '\n' | grep -Fxq filestow-gui; then
+        usermod -a -G filestow-gui "$login"
+        log "Added $login to filestow-gui, so its GUI may use the control broker."
     fi
-    if [ -x "$SYSTEM_INSTALL_DIR/bin/install-gui-broker.sh" ] && [ -S /run/backup-suite/control.sock ]; then
+    if [ -x "$SYSTEM_INSTALL_DIR/bin/install-gui-broker.sh" ] && [ -S /run/filestow/control.sock ]; then
         "$SYSTEM_INSTALL_DIR/bin/install-gui-broker.sh" --refresh-acl || true
     fi
 }
@@ -316,7 +316,7 @@ install_gui_system() {
 
     # The admin login must be able to read the GUI it copies; the release may
     # sit where only root can read it, so hand it a private copy.
-    STAGING_DIR=$(mktemp -d /tmp/backup-suite-gui-install.XXXXXX)
+    STAGING_DIR=$(mktemp -d /tmp/filestow-gui-install.XXXXXX)
     gui_copy="$STAGING_DIR/gui"
     cp -a "$SOURCE_DIR/gui" "$gui_copy"
     chown -R "$login": "$STAGING_DIR"
@@ -326,13 +326,13 @@ install_gui_system() {
 }
 
 install_gui_systemwide() {
-    log "Installing the system-wide GUI (run by the account backup-suite-gui)."
+    log "Installing the system-wide GUI (run by the account filestow-gui)."
     fix_modes "$SOURCE_DIR"
-    bash "$SOURCE_DIR/gui/scripts/backup-suite-gui-server" install --system
+    bash "$SOURCE_DIR/gui/scripts/filestow-gui-server" install --system
     for admin in "${GUI_ADMINS[@]}"; do
-        if ! id -nG "$admin" | tr ' ' '\n' | grep -Fxq backup-suite-gui; then
-            usermod -a -G backup-suite-gui "$admin"
-            log "Added $admin to backup-suite-gui (it may use the GUI after logging in again)."
+        if ! id -nG "$admin" | tr ' ' '\n' | grep -Fxq filestow-gui; then
+            usermod -a -G filestow-gui "$admin"
+            log "Added $admin to filestow-gui (it may use the GUI after logging in again)."
         fi
     done
 }
@@ -340,9 +340,9 @@ install_gui_systemwide() {
 system_gui_next_steps() {
     cat <<'TEXT'
 
-Open the GUI: it listens on /run/backup-suite-gui/gui.sock, for the members of
-the group backup-suite-gui. From your computer, as one of them:
-  ssh -N -L 127.0.0.1:14337:/run/backup-suite-gui/gui.sock LOGIN@SERVER
+Open the GUI: it listens on /run/filestow-gui/gui.sock, for the members of
+the group filestow-gui. From your computer, as one of them:
+  ssh -N -L 127.0.0.1:14337:/run/filestow-gui/gui.sock LOGIN@SERVER
 then open http://127.0.0.1:14337/ (the GUI's Ways to connect has a Tunnel
 Manager profile and launchers too).
 TEXT
@@ -350,7 +350,7 @@ TEXT
 
 gui_next_steps() {
     local who="$1"
-    local script="~/.local/share/backup-suite-gui/app/scripts/backup-suite-gui-server"
+    local script="~/.local/share/filestow-gui/app/scripts/filestow-gui-server"
     cat <<EOF
 
 Open the GUI (as $who):
@@ -378,7 +378,7 @@ EOF
 
 # ------------------------------------------------------------- the install
 
-log "Backup Suite $VERSION, $MODE install, from $SOURCE_DIR"
+log "FileStow $VERSION, $MODE install, from $SOURCE_DIR"
 
 [ "$SYSTEM_GUI" -eq 0 ] || [ "$MODE" = "system" ] || die "--gui-system needs sudo."
 [ "$INSTALL_GUI" -eq 1 ] || [ "$GUI_ONLY" -eq 0 ] || die "--gui-only and --no-gui exclude each other."
@@ -413,17 +413,17 @@ if [ "$GUI_ONLY" -eq 1 ]; then
     else
         fix_modes "$SOURCE_DIR"
         log "Installing the GUI for $(id -un)."
-        bash "$SOURCE_DIR/gui/scripts/backup-suite-gui-server" install
+        bash "$SOURCE_DIR/gui/scripts/filestow-gui-server" install
         gui_next_steps "$(id -un)"
     fi
-    log "The GUI of Backup Suite $VERSION is installed."
+    log "The GUI of FileStow $VERSION is installed."
     exit 0
 fi
 
 if [ "$MODE" = "system" ]; then
     if [ -f "$SYSTEM_CONFIG_DIR/global.conf" ] && [ -d "$SYSTEM_INSTALL_DIR/bin" ]; then
         [ "$DRY_RUN" -eq 0 ] || die "--dry-run is for a first install; for an upgrade run: sudo $SOURCE_DIR/production-deploy.sh --check"
-        log "Backup Suite is installed; upgrading it (configuration and credentials are kept)."
+        log "FileStow is installed; upgrading it (configuration and credentials are kept)."
         fix_modes "$SOURCE_DIR"
         deploy_admin_args=()
         for admin in "${GUI_ADMINS[@]}"; do
@@ -431,9 +431,9 @@ if [ "$MODE" = "system" ]; then
         done
         bash "$SOURCE_DIR/production-deploy.sh" "${DEPLOY_ARGS[@]}" "${deploy_admin_args[@]}"
     else
-        [ ! -e "$SYSTEM_CANONICAL_DIR" ] || die "$SYSTEM_CANONICAL_DIR exists but Backup Suite is not fully installed ($SYSTEM_CONFIG_DIR/global.conf or $SYSTEM_INSTALL_DIR/bin is missing). Move it away and run install.sh again."
+        [ ! -e "$SYSTEM_CANONICAL_DIR" ] || die "$SYSTEM_CANONICAL_DIR exists but FileStow is not fully installed ($SYSTEM_CONFIG_DIR/global.conf or $SYSTEM_INSTALL_DIR/bin is missing). Move it away and run install.sh again."
         FRESH_INSTALL=1
-        STAGING_DIR=$(mktemp -d /tmp/backup-suite-install.XXXXXX)
+        STAGING_DIR=$(mktemp -d /tmp/filestow-install.XXXXXX)
         copy_release "$STAGING_DIR/src"
         fix_modes "$STAGING_DIR/src"
         write_starting_config "$STAGING_DIR/src/config"
@@ -462,9 +462,9 @@ if [ "$MODE" = "system" ]; then
             done
             profile="${profile:-moderate}"
             if [ -n "$floor" ] && [ "$fixed" -eq 0 ]; then
-                BACKUP_SUITE_CONFIG_DIR="$SYSTEM_CONFIG_DIR" "$SYSTEM_INSTALL_DIR/bin/backup-profile.sh" adaptive "$profile" "$floor"
+                FILESTOW_CONFIG_DIR="$SYSTEM_CONFIG_DIR" "$SYSTEM_INSTALL_DIR/bin/backup-profile.sh" adaptive "$profile" "$floor"
             else
-                BACKUP_SUITE_CONFIG_DIR="$SYSTEM_CONFIG_DIR" "$SYSTEM_INSTALL_DIR/bin/backup-profile.sh" set "$profile"
+                FILESTOW_CONFIG_DIR="$SYSTEM_CONFIG_DIR" "$SYSTEM_INSTALL_DIR/bin/backup-profile.sh" set "$profile"
             fi
         fi
         rm -rf "$STAGING_DIR"
@@ -481,7 +481,7 @@ else
     if [ -f "$USER_CONFIG_DIR/global.conf" ]; then
         [ "$DRY_RUN" -eq 0 ] || die "--dry-run is for a first install."
         current_tree=$(cd -- "$(dirname -- "$(readlink -f "$USER_CONFIG_DIR/global.conf")")/.." && pwd)
-        log "Backup Suite is installed from $current_tree; upgrading it (configuration and credentials are kept)."
+        log "FileStow is installed from $current_tree; upgrading it (configuration and credentials are kept)."
         if [ "$current_tree" != "$SOURCE_DIR" ]; then
             [ ! -d "$current_tree/.git" ] || die "That install runs from a git checkout. Update it there: git -C $current_tree pull && $current_tree/setup.sh --refresh-scripts --refresh-units --yes"
             copy_release "$current_tree"
@@ -510,10 +510,10 @@ else
     fi
     if [ "$INSTALL_GUI" -eq 1 ] && [ "$USER_GUI" -eq 1 ]; then
         log "Installing the GUI."
-        "$current_tree/gui/scripts/backup-suite-gui-server" install
+        "$current_tree/gui/scripts/filestow-gui-server" install
         gui_next_steps "$(id -un)"
     fi
 fi
 
 [ "$FRESH_INSTALL" -eq 0 ] || first_steps
-log "Backup Suite $VERSION is installed."
+log "FileStow $VERSION is installed."

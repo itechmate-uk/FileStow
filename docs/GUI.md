@@ -1,6 +1,6 @@
-# Backup Suite GUI
+# FileStow GUI
 
-A browser GUI for Backup Suite, reached through an SSH tunnel managed by Tunnel
+A browser GUI for FileStow, reached through an SSH tunnel managed by Tunnel
 Manager. It shows what the backups are doing and how much of the server they use,
 and offers the same controls as the command-line tools. The full requirements and
 the acceptance checks are in [GUI-SPECIFICATION.md](GUI-SPECIFICATION.md).
@@ -45,7 +45,7 @@ the acceptance checks are in [GUI-SPECIFICATION.md](GUI-SPECIFICATION.md).
   chosen by browsing, with a path box, Home, Up, Refresh and Go. On the server every
   folder can be browsed (folder names only; /proc, /sys, /dev and /run are not
   listed), but only a folder a job may back up can be used: under
-  `FILE_JOB_SOURCE_ROOTS`, never a system or Backup Suite folder. That list is set
+  `FILE_JOB_SOURCE_ROOTS`, never a system or FileStow folder. That list is set
   in `global.conf` on the server only, never from the GUI: in system mode backups
   run as root, so a GUI session that could widen it could send `/etc/shadow` or
   `/root/.ssh` to a destination it set up itself.
@@ -59,16 +59,16 @@ the acceptance checks are in [GUI-SPECIFICATION.md](GUI-SPECIFICATION.md).
 - **Resource warning:** a popup when the server or the backup runs short, once per
   condition until it clears.
 - **Updates** (the top-bar button: **Up to date**, or in amber **Update available**; it opens the Updates window with **Update everything**):
-  Backup Suite and the GUI update themselves from this project's GitHub releases,
+  FileStow and the GUI update themselves from this project's GitHub releases,
   like agentw and agentw-gui. Only the latest published release can be installed;
   its archive must match the SHA-256 published with it and every file must stay
-  inside its folder. **Backup Suite** is updated first, by its own installer in a
-  transient unit (`backup-suite-update.service`, as root in a system install): a
+  inside its folder. **FileStow** is updated first, by its own installer in a
+  transient unit (`filestow-update.service`, as root in a system install): a
   running backup is waited for (or stopped, if chosen), the tests run, and a failure
   keeps the previous version. **The GUI** of a login updates itself as that login
-  (`backup-suite-gui-update.service`, no sudo) and restarts; if it does not come up,
-  the previous copy is put back. A system-wide GUI is updated with Backup Suite. A
-  Backup Suite older than 1.1 (before the update service) is updated once in a
+  (`filestow-gui-update.service`, no sudo) and restarts; if it does not come up,
+  the previous copy is put back. A system-wide GUI is updated with FileStow. A
+  FileStow without the update service is updated once in a
   terminal inside the Updates window, as in agentw-gui: sudo asks for your password
   there, the GUI passes what you type to the terminal and keeps nothing. The
   GUI checks for releases every 6 hours (Settings → General → Updates; it only
@@ -85,7 +85,7 @@ use the latest run's log.
 
 - A job may only back up a folder under `FILE_JOB_SOURCE_ROOTS` (default
   `/home /var/www /srv /opt`), never a system folder (`/etc`, `/root`, `/usr`,
-  `/var/lib`, …) nor one holding Backup Suite's own install, config or state. Only the
+  `/var/lib`, …) nor one holding FileStow's own install, config or state. Only the
   server's administrator sets `FILE_JOB_SOURCE_ROOTS`, in `global.conf`.
 - Programs and paths the backup runs or reads as root (rclone binary, extra rclone
   flags, config, state and unit paths) and install options are shown but read-only:
@@ -99,29 +99,29 @@ use the latest run's log.
 - The GUI is a Node.js server (standard library only, Node 18 or newer). It never
   runs as root and never needs sudo. Two ways:
   - **Per login** (default, like agentw-gui): a **systemd user unit of the login that
-    administers Backup Suite**, `backup-suite-gui-4337.service`. Install or update
+    administers FileStow**, `filestow-gui-4337.service`. Install or update
     it as that login: `./install.sh --gui-only` (no sudo).
-  - **System-wide** (optional): one system unit, `backup-suite-gui.service`, run by
-    the unprivileged account `backup-suite-gui`. Its socket
-    `/run/backup-suite-gui/gui.sock` is open to the group `backup-suite-gui` (the GUI
+  - **System-wide** (optional): one system unit, `filestow-gui.service`, run by
+    the unprivileged account `filestow-gui`. Its socket
+    `/run/filestow-gui/gui.sock` is open to the group `filestow-gui` (the GUI
     admins, the same group as the control broker): `sudo ./install.sh --gui-system`.
-    The broker then sees every change as made by `backup-suite-gui`; the audit log
+    The broker then sees every change as made by `filestow-gui`; the audit log
     cannot tell which admin made it. Tunnel Manager cannot start this unit; it always
     runs.
 - It listens on a private Unix socket,
-  `$XDG_RUNTIME_DIR/backup-suite-gui/gui-4337.sock` (0600 in a 0700 directory).
+  `$XDG_RUNTIME_DIR/filestow-gui/gui-4337.sock` (0600 in a 0700 directory).
   TCP on 127.0.0.1 is opt-in (Settings → Tunnel Manager) and reachable by every local
   account.
-- It reaches Backup Suite only through `bin/backup-control.sh`:
-  - **user mode** (Backup Suite installed without sudo): the GUI runs the script
+- It reaches FileStow only through `bin/backup-control.sh`:
+  - **user mode** (FileStow installed without sudo): the GUI runs the script
     directly, as the user;
   - **system mode** (installed with sudo): the GUI connects to
-    `/run/backup-suite/control.sock`; systemd runs the same script as root for each
-    connection. Only root and members of group `backup-suite-gui` may use it; each
+    `/run/filestow/control.sock`; systemd runs the same script as root for each
+    connection. Only root and members of group `filestow-gui` may use it; each
     member gets an ACL entry on the socket.
 - Every change made through the GUI is confirmed in the browser, validated by the
   control script, and recorded in `<state dir>/gui/audit.jsonl` and the journal
-  (`journalctl -t backup-suite-control`).
+  (`journalctl -t filestow-control`).
 
 Trade-off in system mode: any process running as a GUI admin login can use the
 control verbs, exactly as it can use the GUI. On this server that login also runs
@@ -131,7 +131,7 @@ the GUI), root-run programs and paths are read-only, and every change is audited
 
 ## Install
 
-From a release, `sudo ./install.sh` installs Backup Suite, the broker and the GUI in
+From a release, `sudo ./install.sh` installs FileStow, the broker and the GUI in
 one go (see [INSTALLATION.md](INSTALLATION.md)); the GUI is installed as the login
 that ran sudo, never as root. `./install.sh --gui-only` (no sudo) installs or
 updates only your GUI; `sudo ./install.sh --gui-system` the system-wide GUI. After
@@ -140,37 +140,37 @@ that, updates come from the Updates button in the top bar. By hand:
 System mode (this server):
 
 ```bash
-cd /home/user/php-projects-lv/backup-suite
+cd ~/FileStow    # your checkout of the repository
 sudo ./production-deploy.sh --profile moderate --floor slow --gui-admin user   # installs the broker
-gui/scripts/backup-suite-gui-server install                                    # as user, no sudo
+gui/scripts/filestow-gui-server install                                    # as user, no sudo
 ```
 
-`install` copies the GUI to `~/.local/share/backup-suite-gui/app`, writes the user
+`install` copies the GUI to `~/.local/share/filestow-gui/app`, writes the user
 units with the absolute Node path, starts them, and reports the socket and whether
 linger is on. Run it again to update the GUI. If linger is off, run once:
 `loginctl enable-linger <login>` (then the GUI runs with nobody logged in).
 
-User mode: install Backup Suite with `./setup.sh` as the user, then run
-`gui/scripts/backup-suite-gui-server install`.
+User mode: install FileStow with `./setup.sh` as the user, then run
+`gui/scripts/filestow-gui-server install`.
 
 ## Connect
 
 Every way to connect is in the GUI's ⇩ **Ways to connect** dialog (also under
-Actions) and in `gui/scripts/backup-suite-gui-server status`, made by the same code:
+Actions) and in `gui/scripts/filestow-gui-server status`, made by the same code:
 
-- **Tunnel Manager** (recommended): download `backup-suite-gui-tunnel-manager.toml`
+- **Tunnel Manager** (recommended): download `filestow-gui-tunnel-manager.toml`
   and Import it in your Tunnel Manager profile for this server, then Start. Tunnel
   Manager starts the GUI unit if it is stopped, checks `/api/health` for
-  `backup-suite-gui`, and opens the app window.
+  `filestow-gui`, and opens the app window.
 - **Launcher scripts** for Windows, macOS and Linux: open the tunnel, wait for the
   GUI, open the browser and reconnect on drops.
 - **Phone or tablet**: Termux on Android, Blink Shell on iPhone/iPad.
 - **Manual**: one `ssh -N -L 127.0.0.1:14337:<socket> user@host` line.
 
 The backend `user@host` must be the one your Tunnel Manager profile shows. Save it
-once in the dialog or with `gui/scripts/backup-suite-gui-server backend user@host`.
+once in the dialog or with `gui/scripts/filestow-gui-server backend user@host`.
 `status` also saves the profile and the launchers in
-`~/.local/share/backup-suite-gui/client-launchers`.
+`~/.local/share/filestow-gui/client-launchers`.
 
 Tunnel Manager's app window is a webview at `wails.localhost` whose local proxy
 forwards requests with Host `127.0.0.1:<port>`; the GUI accepts that Origin (the CSRF
@@ -178,15 +178,15 @@ token is still required). The proxy also ends the live stream after each message
 every message has an id, a reconnecting window gets only what it missed, and the
 "connection lost" banner shows only after 30 s without a stream.
 
-Tunnel Manager shows warnings and errors from Backup Suite as desktop notices.
+Tunnel Manager shows warnings and errors from FileStow as desktop notices.
 Every event, including "run finished", is in the bell's Activity list.
 
 ## Operate
 
 ```bash
-gui/scripts/backup-suite-gui-server status      # unit, the GUI watchdog's last stop, every way to connect
-gui/scripts/backup-suite-gui-server restart
-journalctl --user -u backup-suite-gui-4337.service -n 50 --no-pager
+gui/scripts/filestow-gui-server status      # unit, the GUI watchdog's last stop, every way to connect
+gui/scripts/filestow-gui-server restart
+journalctl --user -u filestow-gui-4337.service -n 50 --no-pager
 ```
 
 The GUI's own limits (Settings → GUI resource limits) default to 96 MB soft,

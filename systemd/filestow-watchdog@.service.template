@@ -1,13 +1,13 @@
 [Unit]
-Description=Backup Suite resource watchdog for %i.service
+Description=FileStow resource watchdog for %i.service
 Documentation=file://__INSTALL_DIR__/README.md
 After=%i.service
-OnFailure=backup-suite-notify@%n.service
+OnFailure=filestow-notify@%n.service
 
 [Service]
 Type=exec
 __USER_GROUP_DIRECTIVES__
-Environment=BACKUP_SUITE_CONFIG_DIR=__CONFIG_DIR__
+Environment=FILESTOW_CONFIG_DIR=__CONFIG_DIR__
 ExecStart=__INSTALL_DIR__/bin/backup-watchdog.sh %i.service
 Restart=no
 TimeoutStopSec=30s

@@ -1,5 +1,5 @@
 [Unit]
-Description=Backup Suite database backup timer
+Description=FileStow database backup timer
 
 [Timer]
 OnCalendar=__DB_BACKUP_ONCALENDAR__

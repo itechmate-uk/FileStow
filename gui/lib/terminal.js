@@ -34,7 +34,7 @@ class TerminalTasks {
     }
     if (this.tasks.size >= MAX_TASKS) throw Object.assign(new Error("Too many terminal tasks."), { code: "busy" });
     const id = crypto.randomBytes(12).toString("hex");
-    const scriptBin = this.env.BACKUP_SUITE_GUI_SCRIPT || "script";
+    const scriptBin = this.env.FILESTOW_GUI_SCRIPT || "script";
     const child = spawn(scriptBin, ["-q", "-e", "-c", command, "/dev/null"], {
       env: { ...this.env, TERM: "dumb", COLUMNS: "120", LINES: "40" },
       stdio: ["pipe", "pipe", "pipe"],

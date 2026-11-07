@@ -42,7 +42,7 @@ File:
 
 - `config/file-sources.conf`
 
-In user mode, the equivalent runtime symlink is under `~/.config/backup-suite/file-sources.conf`.
+In user mode, the equivalent runtime symlink is under `~/.config/filestow/file-sources.conf`.
 
 Format:
 
@@ -120,7 +120,7 @@ Do not place credentials, key backups, recovery archives, or unique configuratio
 `FILE_VOLATILE_FILENAME` defaults to `.backup-volatile`. Its syntax and recursive scoping match `.backup-excludes`, but its meaning is different:
 
 - volatile paths are attempted normally first
-- after a failed attempt, Backup Suite waits `FILE_STABILITY_INTERVAL_SECONDS` and retries the complete project
+- after a failed attempt, FileStow waits `FILE_STABILITY_INTERVAL_SECONDS` and retries the complete project
 - only paths observed changing during that interval and matching `.backup-volatile` may be preserved remotely and skipped for the final attempt
 - the run reports `completed-with-skips`, a `skipped_changed` count, and at most `FILE_CHANGED_DETAIL_LIMIT` path details
 - skipped paths are retried automatically on the next run
@@ -130,18 +130,18 @@ Live database files and wallet stores should still have an application-consisten
 
 ### Symlinks and migration
 
-Backup Suite uses rclone `--links`. It does not follow link targets. Relative, absolute, dangling, and directory symlinks are represented remotely as `.rclonelink` records and are recreated when restored with `rclone --links`.
+FileStow uses rclone `--links`. It does not follow link targets. Relative, absolute, dangling, and directory symlinks are represented remotely as `.rclonelink` records and are recreated when restored with `rclone --links`.
 
 For a populated destination that was previously created with `--copy-links`, the first run is gated. Generate and review reports while the timer remains disabled:
 
 ```bash
-/opt/backup-suite/bin/file-backup.sh --verbose --link-migration-report
+/opt/filestow/bin/file-backup.sh --verbose --link-migration-report
 ```
 
 The reports are stored below the configured state directory in `migration-reports/`. No remote changes occur in report mode. After reviewing destination-only candidates, apply the migration explicitly:
 
 ```bash
-/opt/backup-suite/bin/file-backup.sh --verbose --confirm-link-migration
+/opt/filestow/bin/file-backup.sh --verbose --confirm-link-migration
 ```
 
 Confirmation is accepted only when a prior report exists. Changed and destination-only objects are retained below `deleted_files/<timestamp>/...` through rclone `--backup-dir`.
@@ -152,7 +152,7 @@ File:
 
 - `config/database-backups.conf`
 
-In user mode, the equivalent runtime symlink is under `~/.config/backup-suite/database-backups.conf`.
+In user mode, the equivalent runtime symlink is under `~/.config/filestow/database-backups.conf`.
 
 Format:
 
@@ -173,7 +173,7 @@ Directory:
 
 - `config/mysql-profiles`
 
-In user mode, the equivalent runtime symlink is under `~/.config/backup-suite/mysql-profiles`.
+In user mode, the equivalent runtime symlink is under `~/.config/filestow/mysql-profiles`.
 
 Each profile is a separate MySQL client config file such as:
 
@@ -201,13 +201,13 @@ File:
 
 In system mode, the runtime config path is normally:
 
-- `/etc/backup-suite/rclone.conf`
+- `/etc/filestow/rclone.conf`
 
-In user mode, the equivalent runtime symlink is under `~/.config/backup-suite/rclone.conf`.
+In user mode, the equivalent runtime symlink is under `~/.config/filestow/rclone.conf`.
 
 This runtime file is a symlink back to the canonical `rclone.conf` in the suite source tree.
 
-Backup Suite always invokes rclone with:
+FileStow always invokes rclone with:
 
 ```bash
 --config "$RCLONE_CONFIG_PATH"
@@ -216,8 +216,8 @@ Backup Suite always invokes rclone with:
 So operational tests and reconnects must use that same config path. For a system-mode Google Drive remote named `gdrive`, use:
 
 ```bash
-sudo rclone --config /etc/backup-suite/rclone.conf lsd "gdrive,root_folder_id=YOUR_FOLDER_ID:"
-sudo rclone --config /etc/backup-suite/rclone.conf config reconnect gdrive:
+sudo rclone --config /etc/filestow/rclone.conf lsd "gdrive,root_folder_id=YOUR_FOLDER_ID:"
+sudo rclone --config /etc/filestow/rclone.conf config reconnect gdrive:
 ```
 
 Plain `sudo rclone ...` may use `/root/.config/rclone/rclone.conf` instead and can give a false pass while the service still fails.

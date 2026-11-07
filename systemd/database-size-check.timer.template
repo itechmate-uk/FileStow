@@ -1,5 +1,5 @@
 [Unit]
-Description=Backup Suite database size monitor timer
+Description=FileStow database size monitor timer
 
 [Timer]
 OnCalendar=__DB_MONITOR_ONCALENDAR__

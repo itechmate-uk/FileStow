@@ -1,6 +1,6 @@
-// Backup Suite GUI service worker: makes the GUI installable and caches only static
+// FileStow GUI service worker: makes the GUI installable and caches only static
 // assets. API replies are never cached; they always go to the server.
-const CACHE = "backup-suite-gui-v1";
+const CACHE = "filestow-gui-v1";
 const ASSETS = ["/", "/index.html", "/styles.css", "/app.js", "/theme-boot.js", "/help.js", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {

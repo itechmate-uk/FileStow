@@ -1,11 +1,11 @@
 #!/bin/bash
-# Backup Suite control script: one JSON request on stdin, one JSON reply on
+# FileStow control script: one JSON request on stdin, one JSON reply on
 # stdout. The GUI uses it in both install modes:
 #   user mode:   the GUI starts it directly, as the user;
-#   system mode: backup-suite-control@.service starts it as root for each
-#                connection to /run/backup-suite/control.sock, with --peer %i.
+#   system mode: filestow-control@.service starts it as root for each
+#                connection to /run/filestow/control.sock, with --peer %i.
 # The verbs are implemented once in backup-control.py; this wrapper resolves
-# Backup Suite's configuration and checks who is calling.
+# FileStow's configuration and checks who is calling.
 
 set -euo pipefail
 
@@ -31,10 +31,10 @@ Reads one JSON request on stdin and writes one JSON reply on stdout, for
 example:
   echo '{"verb":"status"}' | backup-control.sh
 
---peer is set by backup-suite-control@.service: the instance name of an
+--peer is set by filestow-control@.service: the instance name of an
 accepted Unix socket connection is <n>-<peer pid>-<peer uid>. Only root and
-members of the GUI admin group (BACKUP_SUITE_GUI_GROUP, default
-backup-suite-gui) may use the broker.
+members of the GUI admin group (FILESTOW_GUI_GROUP, default
+filestow-gui) may use the broker.
 EOF
 }
 
@@ -59,14 +59,14 @@ done
 
 caller_uid=$(id -u)
 caller_login=$(id -un)
-gui_group="${BACKUP_SUITE_GUI_GROUP:-backup-suite-gui}"
+gui_group="${FILESTOW_GUI_GROUP:-filestow-gui}"
 if [ -n "$peer_instance" ]; then
     caller_uid="${peer_instance##*-}"
     [[ "$caller_uid" =~ ^[0-9]+$ ]] || reply_error forbidden "Unknown caller."
     caller_login=$(getent passwd "$caller_uid" | cut -d: -f1 || true)
     if [ "$caller_uid" != "0" ]; then
         if [ -z "$caller_login" ] || ! id -nG "$caller_login" 2>/dev/null | tr ' ' '\n' | grep -Fxq -- "$gui_group"; then
-            logger -t backup-suite-control "refused connection from uid $caller_uid (${caller_login:-unknown}): not in group $gui_group" 2>/dev/null || true
+            logger -t filestow-control "refused connection from uid $caller_uid (${caller_login:-unknown}): not in group $gui_group" 2>/dev/null || true
             reply_error forbidden "uid $caller_uid is not a member of $gui_group."
         fi
     fi
@@ -74,7 +74,7 @@ fi
 
 load_global_config
 
-command -v python3 >/dev/null 2>&1 || reply_error unavailable "python3 is required for the Backup Suite control script."
+command -v python3 >/dev/null 2>&1 || reply_error unavailable "python3 is required for the FileStow control script."
 
 export BSC_MODE="$EFFECTIVE_INSTALL_MODE"
 export BSC_SYSTEMD_SCOPE="$SYSTEMD_SCOPE"
@@ -102,6 +102,6 @@ export BSC_GLOBAL_VOLATILE="${FILE_GLOBAL_VOLATILE_PATTERNS:-}"
 export BSC_ACTIVE_WINDOW="${FILE_ACTIVE_WINDOW_SECONDS:-120}"
 export BSC_RCLONE_BIN="${RCLONE_BIN:-rclone}"
 export BSC_RCLONE_CONFIG="${RCLONE_CONFIG_PATH:-}"
-export BACKUP_SUITE_CONFIG_DIR
+export FILESTOW_CONFIG_DIR
 
 exec python3 -I "$SCRIPT_DIR/backup-control.py"

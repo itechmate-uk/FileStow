@@ -1,6 +1,6 @@
 "use strict";
 
-// Connection details for backup-suite-gui-server, made by the same code as the GUI's
+// Connection details for filestow-gui-server, made by the same code as the GUI's
 // "Ways to connect" dialog, so the terminal and the GUI always agree.
 //
 //   node connect-cli.js <app-dir> bundle [user@host]
@@ -14,14 +14,14 @@ const [appDir, command, ...rest] = process.argv.slice(2);
 const settingsStore = require(path.join(appDir, "lib", "settings"));
 const listenConfig = require(path.join(appDir, "lib", "listen-config"));
 const bundle = require(path.join(appDir, "lib", "bundle"));
-const UNIT = `backup-suite-gui-${listenConfig.INSTANCE}.service`;
+const UNIT = `filestow-gui-${listenConfig.INSTANCE}.service`;
 
 function loadSettings(backend) {
   const settings = settingsStore.load();
   if (!backend) return settings;
   const merged = settingsStore.merge(settings, { tunnel: { backendId: backend } });
   if (merged.tunnel.backendId !== backend) {
-    console.error("backup-suite-gui-server: use the form login@host, as your Tunnel Manager profile shows it.");
+    console.error("filestow-gui-server: use the form login@host, as your Tunnel Manager profile shows it.");
     process.exit(64);
   }
   return merged;
@@ -60,7 +60,7 @@ if (command === "bundle") {
 } else if (command === "save-backend") {
   const settings = loadSettings(rest[0]);
   settingsStore.save(settings);
-  console.log(`Saved the backend ${settings.tunnel.backendId}. Restart the GUI (backup-suite-gui-server restart) so open pages show it.`);
+  console.log(`Saved the backend ${settings.tunnel.backendId}. Restart the GUI (filestow-gui-server restart) so open pages show it.`);
 } else {
   console.error("usage: connect-cli.js <app-dir> bundle|status|save-backend ...");
   process.exit(64);

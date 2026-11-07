@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Backup Suite GUI watchdog: defence in depth for the GUI's systemd user unit.
+# FileStow GUI watchdog: defence in depth for the GUI's systemd user unit.
 #
 # It only ever stops the GUI unit, after the GUI stays above its memory limit for
 # three samples (15 s) or above its task limit for two. It never touches the backup,
-# Backup Suite's units, or any other process. It reads cgroup files only, so each
+# FileStow's units, or any other process. It reads cgroup files only, so each
 # sample costs no extra processes. The stop reason is kept for the GUI to show.
 #
-# Usage: backup-suite-gui-watchdog run|once|status [--dry-run]
+# Usage: filestow-gui-watchdog run|once|status [--dry-run]
 
 set -u
 
 INSTANCE=4337
-UNIT="backup-suite-gui-$INSTANCE.service"
+UNIT="filestow-gui-$INSTANCE.service"
 ACTION="${1:-status}"
 shift || true
 DRY_RUN=false
@@ -26,17 +26,17 @@ done
 
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
-ENV_FILE="${BACKUP_SUITE_GUI_WATCHDOG_ENV:-$CONFIG_HOME/backup-suite-gui/watchdog.env}"
-STATE_DIR="${BACKUP_SUITE_GUI_STATE_DIR:-$STATE_HOME/backup-suite-gui}"
+ENV_FILE="${FILESTOW_GUI_WATCHDOG_ENV:-$CONFIG_HOME/filestow-gui/watchdog.env}"
+STATE_DIR="${FILESTOW_GUI_STATE_DIR:-$STATE_HOME/filestow-gui}"
 MARKER="$STATE_DIR/watchdog-trip.env"
 INTERVAL_SECONDS=5
 GUI_MEMORY_STOP_MB=140
 GUI_TASKS_STOP=56
 # shellcheck disable=SC1090
 [ -f "$ENV_FILE" ] && . "$ENV_FILE"
-CGROUP_DIR="${BACKUP_SUITE_GUI_WATCHDOG_CGROUP_DIR:-}"
+CGROUP_DIR="${FILESTOW_GUI_WATCHDOG_CGROUP_DIR:-}"
 
-log() { printf '%s backup-suite-gui-watchdog %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >&2; }
+log() { printf '%s filestow-gui-watchdog %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >&2; }
 
 read_number() {
   local value=""

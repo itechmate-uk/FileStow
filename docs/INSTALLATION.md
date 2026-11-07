@@ -2,42 +2,42 @@
 
 ## Setups
 
-| Setup | Backup Suite | GUI | Install with |
+| Setup | FileStow | GUI | Install with |
 |---|---|---|---|
 | **Default, recommended** | system-wide, as root | each admin's own user service, as that login | `sudo ./install.sh` |
-| Optional: one shared GUI | system-wide, as root | one system service, run by the unprivileged account `backup-suite-gui` | `sudo ./install.sh --gui-system` |
+| Optional: one shared GUI | system-wide, as root | one system service, run by the unprivileged account `filestow-gui` | `sudo ./install.sh --gui-system` |
 | Optional: no root at all | for one login only (its own files) | that login's user service | `./install.sh` |
 
-The GUI never runs as root. With a system-wide Backup Suite, the GUI changes it only
-through the control broker (`/run/backup-suite/control.sock`): root runs a fixed list
-of checked, audited actions for the members of the group `backup-suite-gui`. The GUI
-cannot run anything else as root or read Backup Suite's files.
+The GUI never runs as root. With a system-wide FileStow, the GUI changes it only
+through the control broker (`/run/filestow/control.sock`): root runs a fixed list
+of checked, audited actions for the members of the group `filestow-gui`. The GUI
+cannot run anything else as root or read FileStow's files.
 
 The default is the recommended setup because every admin has their own GUI and the
 audit log names who made each change. A shared GUI reaches the broker as
-`backup-suite-gui`, so the audit log cannot tell the admins apart. More admins in the
+`filestow-gui`, so the audit log cannot tell the admins apart. More admins in the
 default setup: `sudo ./install.sh --gui-admin LOGIN --gui-only` installs a GUI for
 that login and adds it to the group.
 
 ## Install from a release (recommended)
 
 Each release on [GitHub](https://github.com/itechmate-uk/FileStow/releases) has
-`backup-suite-<version>.tar.gz` and its SHA-256 checksum. On the server, as the login
+`filestow-<version>.tar.gz` and its SHA-256 checksum. On the server, as the login
 that will use the GUI:
 
 ```bash
-sha256sum -c backup-suite-<version>.tar.gz.sha256
-tar -xzf backup-suite-<version>.tar.gz
-cd backup-suite-<version>
+sha256sum -c filestow-<version>.tar.gz.sha256
+tar -xzf filestow-<version>.tar.gz
+cd filestow-<version>
 sudo ./install.sh --install-deps
 ```
 
 What `install.sh` does:
 
-- **Mode.** With `sudo`: a system install (scripts in `/opt/backup-suite`, source in
-  `/opt/backup-suite-src`, config in `/etc/backup-suite`, state in
-  `/var/lib/backup-suite`); backups run as root. Without `sudo`: a user install
-  (source in `~/.local/share/backup-suite-src`, config in `~/.config/backup-suite`);
+- **Mode.** With `sudo`: a system install (scripts in `/opt/filestow`, source in
+  `/opt/filestow-src`, config in `/etc/filestow`, state in
+  `/var/lib/filestow`); backups run as root. Without `sudo`: a user install
+  (source in `~/.local/share/filestow-src`, config in `~/.config/filestow`);
   backups run as you.
 - **Packages.** It needs rclone, python3, curl, flock, setfacl (system install) and
   Node.js 18 or newer (for the GUI). `--install-deps` installs what is missing with
@@ -46,7 +46,7 @@ What `install.sh` does:
   empty `file-sources.conf`, `database-backups.conf` and `rclone.conf`; then
   `setup.sh`, which installs the scripts, the systemd units (timers stay off) and, in
   a system install, the GUI's control broker.
-- **Upgrade** (Backup Suite already installed). A system install is upgraded with
+- **Upgrade** (FileStow already installed). A system install is upgraded with
   `production-deploy.sh`: it waits for a running backup (`--stop-running` stops it
   instead), keeps the configuration, credentials and the current resource setup
   (adaptive or fixed), runs the tests first and rolls back on failure. A user install
@@ -57,8 +57,8 @@ What `install.sh` does:
   as that login and turns on linger, so the GUI runs while nobody is logged in.
   `./install.sh --gui-only` (no sudo) installs or updates only your own GUI.
   `sudo ./install.sh --gui-system` installs one system-wide GUI instead (a system
-  service run by the unprivileged account `backup-suite-gui`, for the members of the
-  group `backup-suite-gui`). `--no-gui` skips the GUI.
+  service run by the unprivileged account `filestow-gui`, for the members of the
+  group `filestow-gui`). `--no-gui` skips the GUI.
 
 Options: `--gui-admin LOGIN`, `--gui-only`, `--gui-system`, `--no-gui`,
 `--install-deps`, `--profile NAME`, `--floor NAME`, `--fixed`, `--stop-running`,
@@ -68,37 +68,33 @@ Options: `--gui-admin LOGIN`, `--gui-only`, `--gui-system`, `--no-gui`,
 
 After the first install, update from the GUI: the top-bar button says **Up to
 date**, or in amber **Update available**; it opens the Updates window, where
-**Update everything** updates Backup Suite and then the GUI. It updates Backup Suite
+**Update everything** updates FileStow and then the GUI. It updates FileStow
 first, then the GUI, from this project's GitHub releases:
 
 - Only the latest published release can be installed, never an older one, and the
-  download address is fixed in `bin/backup-suite-update.py`; the GUI cannot pass one.
+  download address is fixed in `bin/filestow-update.py`; the GUI cannot pass one.
 - The archive must match the SHA-256 published with it, and every file in it must
   stay inside its folder; otherwise nothing is installed.
-- Backup Suite is updated by the release's own `install.sh` in a transient unit
-  (`backup-suite-update.service`, as root in a system install, started by the
+- FileStow is updated by the release's own `install.sh` in a transient unit
+  (`filestow-update.service`, as root in a system install, started by the
   control broker), so the update survives the GUI restarting. In a system install
   that is `production-deploy.sh`: it waits for a running backup (or stops it, if
   chosen), runs the tests, and rolls back on failure. The status and log are in
   `<state>/updates/`.
-- Your GUI updates itself as your login (`backup-suite-gui-update.service`); if the
-  new GUI does not start, the previous copy (`~/.local/share/backup-suite-gui/app.previous`)
-  is put back. By hand: `~/.local/share/backup-suite-gui/app/scripts/backup-suite-gui-server rollback`.
+- Your GUI updates itself as your login (`filestow-gui-update.service`); if the
+  new GUI does not start, the previous copy (`~/.local/share/filestow-gui/app.previous`)
+  is put back. By hand: `~/.local/share/filestow-gui/app/scripts/filestow-gui-server rollback`.
 
-- A Backup Suite older than 1.1 has no update service yet: the Updates window updates
+- A FileStow without the update service (no `update.*` control verbs): the Updates window updates
   it in a terminal, where sudo asks for your password (typed into the window's input
   box and passed to the terminal, never kept).
-- Releases come from https://github.com/itechmate-uk/FileStow since 1.1.6. An install
-  older than 1.1.6 still looks in the old repository, which is no longer public:
-  install 1.1.6 once by hand (download it as above, then `sudo ./install.sh`); from
-  then on it updates itself from FileStow.
 
 Running `install.sh` from a newer release still works as well.
 
 After installing, as the GUI admin:
 
 ```bash
-~/.local/share/backup-suite-gui/app/scripts/backup-suite-gui-server status
+~/.local/share/filestow-gui/app/scripts/filestow-gui-server status
 ```
 
 shows every way to connect (Tunnel Manager profile, launchers, phone, `ssh -L`). In
@@ -112,7 +108,7 @@ Set the version in `VERSION` and `gui/package.json`, add release notes as
 `docs/releases/v<version>.md`, commit, then tag and push:
 
 ```bash
-git tag -a v1.0.0 -m "Backup Suite 1.0.0"
+git tag -a v1.0.0 -m "FileStow 1.0.0"
 git push origin v1.0.0
 ```
 
@@ -128,24 +124,24 @@ with your own configuration.
 
 Source suite tree:
 
-- `/home/user/tools/backup-suite`
+- `/home/user/tools/filestow`
 
 Installed suite defaults depend on mode.
 
 System mode defaults:
 
-- scripts: `/opt/backup-suite`
-- canonical source: `/opt/backup-suite-src`
-- config: `/etc/backup-suite`
-- state: `/var/lib/backup-suite`
-- local DB dumps: `/var/backups/backup-suite/databases`
+- scripts: `/opt/filestow`
+- canonical source: `/opt/filestow-src`
+- config: `/etc/filestow`
+- state: `/var/lib/filestow`
+- local DB dumps: `/var/backups/filestow/databases`
 
 User mode defaults:
 
-- scripts: `~/.local/share/backup-suite`
-- config: `~/.config/backup-suite`
-- state: `~/.local/state/backup-suite`
-- local DB dumps: `~/backups/backup-suite/databases`
+- scripts: `~/.local/share/filestow`
+- config: `~/.config/filestow`
+- state: `~/.local/state/filestow`
+- local DB dumps: `~/backups/filestow/databases`
 
 ## Config Files
 
@@ -159,9 +155,9 @@ When used as a live deployment tree, the canonical config files are:
 - `rclone.conf`
 - `mysql-profiles/*.cnf`
 
-In user mode, setup deploys runtime config into `~/.config/backup-suite`.
+In user mode, setup deploys runtime config into `~/.config/filestow`.
 
-In system mode, setup copies the suite source tree into `/opt/backup-suite-src`, then symlinks `/etc/backup-suite` back to that copied canonical source tree.
+In system mode, setup copies the suite source tree into `/opt/filestow-src`, then symlinks `/etc/filestow` back to that copied canonical source tree.
 
 Example files remain alongside them for reference.
 
@@ -169,30 +165,30 @@ Example files remain alongside them for reference.
 
 Script:
 
-- `/home/user/tools/backup-suite/setup.sh`
+- `/home/user/tools/filestow/setup.sh`
 
 If the suite was downloaded or extracted from an archive and executable bits were not preserved, fix them once before running setup:
 
 ```bash
-chmod 755 /home/user/tools/backup-suite/setup.sh /home/user/tools/backup-suite/bin/*.sh
+chmod 755 /home/user/tools/filestow/setup.sh /home/user/tools/filestow/bin/*.sh
 ```
 
 Run it yourself after editing the real config files:
 
 ```bash
-sudo /home/user/tools/backup-suite/setup.sh --dry-run
-sudo /home/user/tools/backup-suite/setup.sh
+sudo /home/user/tools/filestow/setup.sh --dry-run
+sudo /home/user/tools/filestow/setup.sh
 ```
 
-In system-mode dry runs, the script previews deployment into `/opt/backup-suite-src` but reads templates and config from the current source tree during the preview. That avoids false errors when the target canonical source tree does not exist yet.
+In system-mode dry runs, the script previews deployment into `/opt/filestow-src` but reads templates and config from the current source tree during the preview. That avoids false errors when the target canonical source tree does not exist yet.
 
 If you run setup without `sudo`, the suite can install itself in user mode automatically.
 
 User mode example:
 
 ```bash
-/home/user/tools/backup-suite/setup.sh --dry-run
-/home/user/tools/backup-suite/setup.sh
+/home/user/tools/filestow/setup.sh --dry-run
+/home/user/tools/filestow/setup.sh
 ```
 
 If you run setup with `sudo` or while logged in directly as `root`, and `INSTALL_MODE="auto"`, the script first detects that system-wide installation is possible and then asks you to choose:
@@ -203,9 +199,9 @@ If you run setup with `sudo` or while logged in directly as `root`, and `INSTALL
 Optional refresh modes:
 
 ```bash
-sudo /home/user/tools/backup-suite/setup.sh --refresh-scripts
-sudo /home/user/tools/backup-suite/setup.sh --refresh-config
-sudo /home/user/tools/backup-suite/setup.sh --refresh-units
+sudo /home/user/tools/filestow/setup.sh --refresh-scripts
+sudo /home/user/tools/filestow/setup.sh --refresh-config
+sudo /home/user/tools/filestow/setup.sh --refresh-units
 ```
 
 ## Setup Script Flags
@@ -230,7 +226,7 @@ Common `setup.sh` flags:
 Example combined refresh command:
 
 ```bash
-sudo /home/user/tools/backup-suite/setup.sh --refresh-scripts --refresh-units --yes
+sudo /home/user/tools/filestow/setup.sh --refresh-scripts --refresh-units --yes
 ```
 
 This means:
@@ -257,10 +253,10 @@ Install mode behavior:
 
 ## What the Setup Script Can Do
 
-- install the suite under `/opt/backup-suite`
-- in system mode, copy the suite source tree into `/opt/backup-suite-src`
-- deploy runtime config symlinks into `/etc/backup-suite` or `~/.config/backup-suite`
-- in system mode, add the canonical `/opt/backup-suite-src` source to file backup config as disabled by default if it is not already present
+- install the suite under `/opt/filestow`
+- in system mode, copy the suite source tree into `/opt/filestow-src`
+- deploy runtime config symlinks into `/etc/filestow` or `~/.config/filestow`
+- in system mode, add the canonical `/opt/filestow-src` source to file backup config as disabled by default if it is not already present
 - install systemd service and timer units
 - optionally enable the timers
 

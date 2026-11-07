@@ -1,4 +1,4 @@
-// Backup Suite GUI front end. Vanilla JS, no build step. Every server change goes
+// FileStow GUI front end. Vanilla JS, no build step. Every server change goes
 // through a confirmation dialog; every value from the server is inserted as text.
 (() => {
   "use strict";
@@ -19,7 +19,7 @@
     ["Adaptive steps", ["WATCHDOG_ADAPTIVE_STEP_DOWN_AVAILABLE_PERCENT", "WATCHDOG_ADAPTIVE_STEP_DOWN_PSI_FULL", "WATCHDOG_ADAPTIVE_STEP_UP_AVAILABLE_PERCENT", "WATCHDOG_ADAPTIVE_STEP_UP_SECONDS", "WATCHDOG_ADAPTIVE_COOLDOWN_SECONDS", "WATCHDOG_NOTIFY_PROFILE_STEPS"]]
   ];
   const NTFY_KEYS = ["NOTIFY_FAILURES_ENABLED", "NOTIFY_NTFY_TOPIC_URL", "NOTIFY_NTFY_TOKEN", "NOTIFY_NTFY_PRIORITY", "NOTIFY_NTFY_TITLE_PREFIX", "NOTIFY_NTFY_ATTACH_DETAILS", "NOTIFY_NTFY_MESSAGE_MAX_BYTES"];
-  const SEEN_KEY = "backup-suite-gui-events-seen";
+  const SEEN_KEY = "filestow-gui-events-seen";
 
   const state = {
     session: null,
@@ -236,7 +236,7 @@
   }
 
   function showHelp(topic) {
-    const help = window.BACKUP_SUITE_HELP?.[topic];
+    const help = window.FILESTOW_HELP?.[topic];
     if (!help) return;
     $("#help-title").textContent = `Help: ${help.title}`;
     const body = clear($("#help-body"));
@@ -271,7 +271,7 @@
     }
   }
 
-  function textBlock(lines, { searchable = true, fileName = "backup-suite.log" } = {}) {
+  function textBlock(lines, { searchable = true, fileName = "filestow.log" } = {}) {
     const text = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
     const pre = h("pre", { class: "log-view", tabindex: "0" }, text || "(empty)");
     const wrapper = h("div", {});
@@ -327,13 +327,13 @@
     return h("p", { class: "muted" }, text);
   }
 
-  // An installed Backup Suite older than this GUI answers "Unknown verb" to what it
+  // An installed FileStow older than this GUI answers "Unknown verb" to what it
   // does not have yet: say what to do instead.
   function isOutdatedBackendError(error) {
     return error?.code === "invalid_request" && /Unknown verb/i.test(error.message || "");
   }
 
-  const OUTDATED_TEXT = "Backup Suite on the server is older than this GUI, so this page is not available yet. Deploy the latest version (sudo ./production-deploy.sh … from the repository), then reload. Everything else keeps working.";
+  const OUTDATED_TEXT = "FileStow on the server is older than this GUI, so this page is not available yet. Deploy the latest version (sudo ./production-deploy.sh … from the repository), then reload. Everything else keeps working.";
 
   function errorNode(error) {
     if (isOutdatedBackendError(error)) return h("div", { class: "notice info", role: "status" }, OUTDATED_TEXT);
@@ -349,7 +349,7 @@
     const missing = Array.isArray(verbs) ? REQUIRED_VERBS.filter((verb) => !verbs.includes(verb)) : REQUIRED_VERBS;
     const banner = $("#backend-banner");
     banner.hidden = missing.length === 0;
-    if (missing.length) banner.textContent = `Backup Suite on the server is older than this GUI: backup jobs, destinations or folder pickers may not work yet. Deploy the latest version (sudo ./production-deploy.sh …), then reload.`;
+    if (missing.length) banner.textContent = `FileStow on the server is older than this GUI: backup jobs, destinations or folder pickers may not work yet. Deploy the latest version (sudo ./production-deploy.sh …), then reload.`;
   }
 
   // ------------------------------------------------------------------ status model
@@ -646,7 +646,7 @@
     const mode = state.session?.backend || {};
     return h("div", { class: "notice info" },
       h("p", {}, mode.reason || ""),
-      h("p", {}, "User mode: install Backup Suite for this login with ./setup.sh (no sudo). System mode: an administrator runs sudo ./production-deploy.sh --gui-admin ", state.session?.login || "<login>", " so this login may use the broker."));
+      h("p", {}, "User mode: install FileStow for this login with ./setup.sh (no sudo). System mode: an administrator runs sudo ./production-deploy.sh --gui-admin ", state.session?.login || "<login>", " so this login may use the broker."));
   }
 
   async function runAction(action) {
@@ -1021,7 +1021,7 @@
       return false;
     }
     const shown = keys.map((key) => `${key} = ${key === "NOTIFY_NTFY_TOKEN" ? (changes[key] ? "[new token]" : "[cleared]") : changes[key] || "(empty)"}`);
-    if (!(await confirmAction({ title, lines: ["Writes these values to Backup Suite's global.conf (a backup copy is kept and the change is audited):", shown, note], okLabel: "Save" }))) return false;
+    if (!(await confirmAction({ title, lines: ["Writes these values to FileStow's global.conf (a backup copy is kept and the change is audited):", shown, note], okLabel: "Save" }))) return false;
     try {
       const result = await control("config.set", { changes, expect_sha: config.sha256 });
       toast(`Saved ${result.changed.length} setting(s). ${result.note}`);
@@ -1094,7 +1094,7 @@
     const byKey = Object.fromEntries(config.settings.map((entry) => [entry.key, entry]));
     const enabled = (byKey.NOTIFY_FAILURES_ENABLED.value || byKey.NOTIFY_FAILURES_ENABLED.default) === "1";
     const configured = byKey.NOTIFY_NTFY_TOPIC_URL.is_set;
-    body.append(h("p", { class: "muted" }, "Backup Suite writes one message per event and sends it through every enabled channel. The bell lists them all with each channel's result."));
+    body.append(h("p", { class: "muted" }, "FileStow writes one message per event and sends it through every enabled channel. The bell lists them all with each channel's result."));
 
     const log = state.events.filter((event) => eventDelivery(event).channels.ntfy).slice().reverse();
     const counts = log.reduce((sum, event) => { sum[eventDelivery(event).channels.ntfy] = (sum[eventDelivery(event).channels.ntfy] || 0) + 1; return sum; }, {});
@@ -1269,11 +1269,11 @@
     if (state.view.kind === "home") renderMain();
   }
 
-  // The entry verbs arrived with the per-entry pages; an older installed Backup Suite
+  // The entry verbs arrived with the per-entry pages; an older installed FileStow
   // answers "Unknown verb" until it is deployed again.
   function entriesErrorNode(error) {
     if (isOutdatedBackendError(error)) {
-      return h("div", { class: "notice info" }, "The installed Backup Suite is older than this GUI: backup jobs need the latest version. Deploy it (sudo ./production-deploy.sh …), then reload. Home and Admin work meanwhile.");
+      return h("div", { class: "notice info" }, "The installed FileStow is older than this GUI: backup jobs need the latest version. Deploy it (sudo ./production-deploy.sh …), then reload. Home and Admin work meanwhile.");
     }
     return errorNode(error);
   }
@@ -1562,7 +1562,7 @@
       lines: [
         `${target.folder ? "This folder and everything in it" : "This file"} will no longer be backed up in ${where}, from the next run on.`,
         ["The copy already on the remote stays as it is; nothing is deleted there.",
-          "The pattern is kept in Backup Suite's config for this job, not in the project's folder. Remove it again under Excludes & stop files.",
+          "The pattern is kept in FileStow's config for this job, not in the project's folder. Remove it again under Excludes & stop files.",
           "The change is audited and listed in Activity."]
       ],
       okLabel: "Exclude"
@@ -1810,7 +1810,7 @@
       };
       const jobExcludes = data.patterns?.excludes || [];
       const projectExcludes = Object.entries(data.project_patterns || {});
-      panel.append(h("h3", {}, "Excluded by this job"), h("p", { class: "muted" }, "Kept in Backup Suite's config, not in the projects' folders, and relative to each project's folder. Added with Exclude… on Changing files, or in the job editor."));
+      panel.append(h("h3", {}, "Excluded by this job"), h("p", { class: "muted" }, "Kept in FileStow's config, not in the projects' folders, and relative to each project's folder. Added with Exclude… on Changing files, or in the job editor."));
       const patternList = (patterns, scope, child) => h("ul", { class: "pattern-list" }, patterns.map((pattern) => h("li", {}, h("code", {}, pattern), " ",
         h("button", { type: "button", class: "small-button", onclick: () => removeJobExclude(entry, scope, child, pattern) }, "Remove"))));
       if (jobExcludes.length) panel.append(h("div", {}, h("p", {}, entry.isolation === "children" ? "In every project:" : "In this job:"), patternList(jobExcludes, "job", "")));
@@ -1901,7 +1901,7 @@
   // Like agentw-gui's folder picker in New Project: a path box with Home, Up,
   // Refresh and Go, and the folders of the current one. On this server
   // (fs.browse) every folder can be browsed, but only one a job may back up
-  // (under FILE_JOB_SOURCE_ROOTS, outside system and Backup Suite folders) can be
+  // (under FILE_JOB_SOURCE_ROOTS, outside system and FileStow folders) can be
   // used. On a destination (remote.browse) a new sub-folder name can be added; the
   // first backup creates it.
 
@@ -2307,7 +2307,7 @@
     if (result.warnings.length) host.append(h("div", { class: "notice" }, h("strong", {}, "Note"), h("ul", {}, result.warnings.map((line) => h("li", {}, line)))));
     if (!result.problems.length && !result.warnings.length) host.append(h("p", { class: "notice ok" }, "Looks good."));
     $("#job-save-button").disabled = result.problems.length > 0;
-    $("#job-roots-note").textContent = info.roots?.length ? `Allowed under: ${info.roots.join(", ")} (FILE_JOB_SOURCE_ROOTS, set on the server). System folders and Backup Suite's own folders are never allowed.` : "";
+    $("#job-roots-note").textContent = info.roots?.length ? `Allowed under: ${info.roots.join(", ")} (FILE_JOB_SOURCE_ROOTS, set on the server). System folders and FileStow's own folders are never allowed.` : "";
   }
 
   function scheduleJobCheck() {
@@ -2515,7 +2515,7 @@
       for (const fieldset of form.querySelectorAll("fieldset")) fieldset.hidden = ![...fieldset.querySelectorAll(".setting-row")].some((row) => !row.hidden);
     });
     const errors = h("div", { class: "field-error", role: "alert" });
-    body.append(h("p", { class: "muted" }, "Every key of Backup Suite's global.conf. Each save is checked by the server, confirmed, backed up and audited. Programs and paths that run as root, and install options, are shown but changed on the server only."),
+    body.append(h("p", { class: "muted" }, "Every key of FileStow's global.conf. Each save is checked by the server, confirmed, backed up and audited. Programs and paths that run as root, and install options, are shown but changed on the server only."),
       h("div", { class: "search-row" }, filter), form, errors,
       h("div", { class: "toolbar-row end sticky-save" }, h("button", { type: "button", class: "primary-button", onclick: async () => {
         const changes = collectChanges(form);
@@ -2564,7 +2564,7 @@
   // ------------------------------------------------------------------ updates
   //
   // Like agentw-gui: a top-bar button that says "Up to date", or in amber "Update
-  // available", and opens the Updates window. Backup Suite is updated first, then
+  // available", and opens the Updates window. FileStow is updated first, then
   // this GUI; "Update everything" does both in that order and reloads the page on
   // the new GUI. Nothing installs without a confirmation.
 
@@ -2576,7 +2576,7 @@
     return data;
   }
 
-  // Backup Suite before 1.1 has no updater of its own: it needs one update by hand.
+  // A FileStow without the update service has no updater of its own: it needs one update by hand.
   function backendNeedsManualUpdate(data) {
     return Boolean(data?.latest?.ok && data.backend && data.backend.supported === false && data.backend.code === "invalid_request");
   }
@@ -2601,10 +2601,10 @@
     } else if (updatesAvailable(data)) {
       button.textContent = "Update available";
       button.classList.add("is-available");
-      button.title = `Backup Suite ${data.latest.latest} is available; click to update`;
+      button.title = `FileStow ${data.latest.latest} is available; click to update`;
     } else if (data?.latest?.ok) {
       button.textContent = "Up to date";
-      button.title = `Backup Suite and this GUI are up to date (${data.latest.latest}); click to check again`;
+      button.title = `FileStow and this GUI are up to date (${data.latest.latest}); click to check again`;
     } else {
       button.textContent = "Update check";
       button.classList.add("is-unknown");
@@ -2629,9 +2629,9 @@
     return h("details", { class: "update-log" }, h("summary", {}, "Installer log"), h("pre", { class: "log-view" }, status.log_tail));
   }
 
-  // The one manual update of a Backup Suite older than 1.1, as commands to copy.
+  // The one manual update of a FileStow without the update service, as commands to copy.
   function manualUpdateNode(version) {
-    const name = `backup-suite-${version}`;
+    const name = `filestow-${version}`;
     const base = `https://github.com/itechmate-uk/FileStow/releases/download/v${version}`;
     const system = state.updates?.backend?.mode !== "user" && state.session?.backend?.mode !== "user";
     const command = [
@@ -2649,9 +2649,9 @@
       }
     } }, "Copy");
     return h("div", { class: "notice info" },
-      h("p", {}, `Backup Suite on this server is older than 1.1, so its control service cannot install updates yet. Update it once in a terminal here${system ? ": sudo asks for your password there" : ""}. Afterwards Backup Suite updates from this window without a password.`),
+      h("p", {}, `FileStow on this server has no update service yet, so its control service cannot install updates yet. Update it once in a terminal here${system ? ": sudo asks for your password there" : ""}. Afterwards FileStow updates from this window without a password.`),
       h("div", { class: "toolbar-row tight" },
-        h("button", { type: "button", class: "primary-button", disabled: Boolean(terminalTask && !terminalTask.done), onclick: () => startTerminalUpdate(version) }, `Update Backup Suite to ${version} in a terminal…`)),
+        h("button", { type: "button", class: "primary-button", disabled: Boolean(terminalTask && !terminalTask.done), onclick: () => startTerminalUpdate(version) }, `Update FileStow to ${version} in a terminal…`)),
       h("details", {}, h("summary", {}, "Or run these commands on the server yourself"),
         h("div", { class: "update-command" }, h("code", {}, command), copy),
         h("p", { class: "muted" }, "They download the release, check its SHA-256 and run its installer, which keeps your configuration, waits for a running backup, runs the tests and rolls back on failure.")));
@@ -2713,7 +2713,7 @@
   async function terminalFinished(task) {
     await loadUpdates(true).catch(() => {});
     if (task.code === 0) {
-      toast("Backup Suite is updated.", "info", 8000);
+      toast("FileStow is updated.", "info", 8000);
       if (state.updateAll) {
         await continueUpdateAll();
         pollUpdatesWhileRunning();
@@ -2723,11 +2723,11 @@
         state.updateAll = null;
         renderUpdateButton();
       }
-      toast("The Backup Suite update did not finish; the terminal shows why. The previous version stays in use.", "error", 12000);
+      toast("The FileStow update did not finish; the terminal shows why. The previous version stays in use.", "error", 12000);
     }
   }
 
-  // Confirms a Backup Suite update. With a backup running, the same dialog asks
+  // Confirms a FileStow update. With a backup running, the same dialog asks
   // whether to stop it and update now (safe: the next run picks up the rest) or
   // to wait for it. Resolves to { stopRunning } or null when cancelled.
   async function confirmBackendUpdate({ title, lines }) {
@@ -2765,7 +2765,7 @@
   async function startTerminalUpdate(version, { confirm = true, stopRunning = false } = {}) {
     if (confirm) {
       const answer = await confirmBackendUpdate({
-        title: `Update Backup Suite to ${version} in a terminal?`,
+        title: `Update FileStow to ${version} in a terminal?`,
         lines: [
           "Opens a terminal below that starts the update as root with sudo; sudo asks for your password there (type it in the input box). The update downloads the release, checks its SHA-256, runs the tests and rolls back on failure; your configuration is kept.",
           "Closing the window does not stop the update."
@@ -2777,7 +2777,7 @@
     version = await freshLatestVersion(version);
     try {
       const data = await api("/api/updates/terminal", { method: "POST", body: { version, stop_running: stopRunning } });
-      showTerminal(`Updating Backup Suite to ${version}`);
+      showTerminal(`Updating FileStow to ${version}`);
       terminalTask = { ...data.task };
       renderTerminal(data.task, data.task.output);
       $("#update-terminal-input").focus();
@@ -2821,7 +2821,7 @@
     }, 4000);
   }
 
-  // "Update everything": once Backup Suite is updated, update the GUI.
+  // "Update everything": once FileStow is updated, update the GUI.
   async function continueUpdateAll() {
     const plan = state.updateAll;
     const data = state.updates;
@@ -2829,7 +2829,7 @@
     if (plan.step === "backend") {
       if (data.backend?.status?.state === "failed") {
         state.updateAll = null;
-        toast("The Backup Suite update failed; the GUI was not updated. The previous versions stay in use.", "error", 12000);
+        toast("The FileStow update failed; the GUI was not updated. The previous versions stay in use.", "error", 12000);
         renderUpdateButton();
         return;
       }
@@ -2838,7 +2838,7 @@
         await startUpdate("gui", plan.version, false, { confirm: false });
       } else {
         state.updateAll = null;
-        toast(`Backup Suite ${plan.version} is installed.`, "info", 8000);
+        toast(`FileStow ${plan.version} is installed.`, "info", 8000);
         renderUpdateButton();
       }
     }
@@ -2869,9 +2869,9 @@
     const backend = target === "backend";
     if (confirm && backend) {
       const answer = await confirmBackendUpdate({
-        title: `Update Backup Suite to ${version}?`,
+        title: `Update FileStow to ${version}?`,
         lines: [
-          `Downloads Backup Suite ${version} from GitHub, checks it against its published SHA-256, then installs it${state.updates?.backend?.mode === "system" ? " as root" : ""}.`,
+          `Downloads FileStow ${version} from GitHub, checks it against its published SHA-256, then installs it${state.updates?.backend?.mode === "system" ? " as root" : ""}.`,
           ["Your configuration, credentials, jobs and resource setup are kept.",
             "The tests run first; if anything fails, the previous version stays in use.",
             state.updates?.gui?.system ? "This system-wide GUI is updated with it and restarts." : "This GUI is updated separately (Update GUI, or Update everything)."]
@@ -2880,14 +2880,14 @@
       if (!answer) return false;
       stopRunning = answer.stopRunning;
     } else if (confirm) {
-      const lines = [`Downloads the GUI of Backup Suite ${version}, checks its SHA-256 and installs it for your login.`,
+      const lines = [`Downloads the GUI of FileStow ${version}, checks its SHA-256 and installs it for your login.`,
         ["The GUI restarts; this page reloads by itself. If the new GUI does not start, the previous one is put back."]];
       if (!(await confirmAction({ title: `Update the GUI to ${version}?`, lines, okLabel: "Update" }))) return false;
     }
     version = await freshLatestVersion(version);
     try {
       await api("/api/updates/apply", { method: "POST", body: { target, version, stop_running: stopRunning } });
-      toast(backend ? `Updating Backup Suite to ${version}…` : `Updating the GUI to ${version}; it restarts in a moment.`, "info", 8000);
+      toast(backend ? `Updating FileStow to ${version}…` : `Updating the GUI to ${version}; it restarts in a moment.`, "info", 8000);
       if (!backend) reloadOnNewGui(version);
       await loadUpdates().catch(() => {});
       pollUpdatesWhileRunning();
@@ -2904,8 +2904,8 @@
     const data = state.updates;
     const steps = [];
     const terminal = backendNeedsManualUpdate(data);
-    if (terminal) steps.push(`Backup Suite → ${version} in a terminal below: sudo asks for your password there. Configuration is kept; the tests run first and a failure keeps the previous version.`);
-    if (data.backend?.update_available) steps.push(`Backup Suite ${data.backend.installed} → ${version}${data.backend.mode === "system" ? " (as root, through the control service)" : ""}: configuration, credentials, jobs and resource setup are kept; the tests run first and a failure keeps the previous version.`);
+    if (terminal) steps.push(`FileStow → ${version} in a terminal below: sudo asks for your password there. Configuration is kept; the tests run first and a failure keeps the previous version.`);
+    if (data.backend?.update_available) steps.push(`FileStow ${data.backend.installed} → ${version}${data.backend.mode === "system" ? " (as root, through the control service)" : ""}: configuration, credentials, jobs and resource setup are kept; the tests run first and a failure keeps the previous version.`);
     if (data.gui?.update_available) steps.push(`Then this GUI ${data.gui.version} → ${version}, for your login: it restarts and this page reloads; if it does not start, the previous GUI is put back.`);
     const lines = ["Downloads the release from GitHub and checks it against its published SHA-256 before anything is installed.", steps];
     const backendToo = terminal || data.backend?.update_available;
@@ -2965,25 +2965,25 @@
     const everything = (backend.update_available || gui.update_available || manual) && !running
       ? h("div", { class: "toolbar-row tight end" },
         h("button", { type: "button", class: "primary-button", onclick: () => updateEverything(latestVersion) },
-          (backend.update_available || manual) && gui.update_available ? `Update everything to ${latestVersion}…` : (backend.update_available || manual) ? `Update Backup Suite to ${latestVersion}…` : `Update the GUI to ${latestVersion}…`))
+          (backend.update_available || manual) && gui.update_available ? `Update everything to ${latestVersion}…` : (backend.update_available || manual) ? `Update FileStow to ${latestVersion}…` : `Update the GUI to ${latestVersion}…`))
       : null;
 
     const backendCard = h("section", { class: "card" },
-      h("div", { class: "channel-head" }, h("h3", {}, "Backup Suite"),
+      h("div", { class: "channel-head" }, h("h3", {}, "FileStow"),
         backend.update_available ? pill(`${latestVersion} available`, "warn")
           : backendNeedsManualUpdate(data) ? pill(`${latestVersion} available`, "warn")
             : backend.supported ? pill("up to date", "ok") : pill("unknown", "")),
-      kv([["Installed", backend.installed || (backendNeedsManualUpdate(data) ? "older than 1.1" : "unknown")], ["Runs", backend.mode === "system" ? "system-wide, as root" : backend.mode === "user" ? "for your login" : (state.session?.backend?.label || "")]]),
-      backendNeedsManualUpdate(data) ? manualUpdateNode(latestVersion) : backend.supported ? null : h("p", { class: "notice info" }, backend.error || "Backup Suite could not be reached."),
+      kv([["Installed", backend.installed || (backendNeedsManualUpdate(data) ? "without the update service" : "unknown")], ["Runs", backend.mode === "system" ? "system-wide, as root" : backend.mode === "user" ? "for your login" : (state.session?.backend?.label || "")]]),
+      backendNeedsManualUpdate(data) ? manualUpdateNode(latestVersion) : backend.supported ? null : h("p", { class: "notice info" }, backend.error || "FileStow could not be reached."),
       updateStateNode(backend.status), updateLogNode(backend.status),
       backend.update_available && !running
-        ? h("div", { class: "toolbar-row tight end" }, h("button", { type: "button", onclick: () => startUpdate("backend", latestVersion) }, "Only Backup Suite…"))
+        ? h("div", { class: "toolbar-row tight end" }, h("button", { type: "button", onclick: () => startUpdate("backend", latestVersion) }, "Only FileStow…"))
         : null);
 
     const guiCard = h("section", { class: "card" },
       h("div", { class: "channel-head" }, h("h3", {}, gui.system ? "GUI (system-wide)" : "GUI (your login)"),
-        gui.update_available ? pill(`${latestVersion} available`, "warn") : pill(gui.system ? "updated with Backup Suite" : "up to date", "ok")),
-      kv([["Installed", gui.version || ""], ["Runs as", gui.system ? "the system service backup-suite-gui.service" : "your user service, no root"]]),
+        gui.update_available ? pill(`${latestVersion} available`, "warn") : pill(gui.system ? "updated with FileStow" : "up to date", "ok")),
+      kv([["Installed", gui.version || ""], ["Runs as", gui.system ? "the system service filestow-gui.service" : "your user service, no root"]]),
       gui.updater || gui.system ? null : h("p", { class: "notice info" }, "This GUI has no updater yet: install it once more from a release (./install.sh --gui-only, no sudo)."),
       updateStateNode(gui.status), updateLogNode(gui.status),
       gui.update_available && gui.updater && !running
@@ -3334,7 +3334,7 @@
   function applyTheme(theme) {
     if (theme === "light" || theme === "dark") document.documentElement.setAttribute("data-theme", theme);
     else document.documentElement.removeAttribute("data-theme");
-    storageSet("backup-suite-gui-theme", theme);
+    storageSet("filestow-gui-theme", theme);
   }
 
   function settingsTab(name) {
@@ -3358,7 +3358,7 @@
     const backend = state.session.backend;
     $("#settings-backend-note").textContent = `Now: ${backend.label}. ${backend.reason}`;
     const listen = state.session.listen;
-    $("#settings-listen-note").textContent = `Listening now: ${listen.mode}${listen.mode !== "tcp" ? ` on ${listen.socket_path}` : ""}${listen.mode !== "socket" ? ` and 127.0.0.1:${listen.tcp_port}` : ""}. ${listen.warning || ""}${listen.source === "env" ? " (set by BACKUP_SUITE_GUI_LISTEN; the setting below is ignored)" : ""}`;
+    $("#settings-listen-note").textContent = `Listening now: ${listen.mode}${listen.mode !== "tcp" ? ` on ${listen.socket_path}` : ""}${listen.mode !== "socket" ? ` and 127.0.0.1:${listen.tcp_port}` : ""}. ${listen.warning || ""}${listen.source === "env" ? " (set by FILESTOW_GUI_LISTEN; the setting below is ignored)" : ""}`;
     updateNotificationButton();
   }
 
@@ -3454,7 +3454,7 @@
       const steps = [
         `Install Tunnel Manager (Windows, macOS, Linux): ${tm.download_url}`,
         `Download the profile ${tm.file_name} and, in your Tunnel Manager profile for ${info.backend_id}, choose Import.`,
-        "Select the imported tunnel backup-suite-gui, then Start. Tunnel Manager starts the GUI on the server if it is stopped, checks it, and opens the app window.",
+        "Select the imported tunnel filestow-gui, then Start. Tunnel Manager starts the GUI on the server if it is stopped, checks it, and opens the app window.",
         connectSignIn(info)
       ];
       const view = [
@@ -3616,7 +3616,7 @@
       saveJobFromEditor();
     });
     $("#entry-filter").addEventListener("change", () => {
-      storageSet("backup-suite-gui-entry-filter", $("#entry-filter").value);
+      storageSet("filestow-gui-entry-filter", $("#entry-filter").value);
       renderEntryList();
     });
     $("#resource-warning-close").addEventListener("click", () => { $("#resource-warning").hidden = true; });
@@ -3656,14 +3656,14 @@
     });
     $("#browser-notification-button").addEventListener("click", async () => {
       if (Notification.permission === "granted") {
-        new Notification("Backup Suite GUI test", { body: "Browser notifications work in this window.", icon: "/icons/icon-192.png" });
+        new Notification("FileStow GUI test", { body: "Browser notifications work in this window.", icon: "/icons/icon-192.png" });
       } else {
         await Notification.requestPermission();
       }
       updateNotificationButton();
     });
     $("#restart-gui-button").addEventListener("click", async () => {
-      if (!(await confirmAction({ title: "Restart the GUI?", lines: ["Restarts backup-suite-gui. Open pages reconnect after a few seconds. Backups are not affected.", "If the listener changes, reconnect the tunnel with the new bundle from Ways to connect."], okLabel: "Restart GUI" }))) return;
+      if (!(await confirmAction({ title: "Restart the GUI?", lines: ["Restarts filestow-gui. Open pages reconnect after a few seconds. Backups are not affected.", "If the listener changes, reconnect the tunnel with the new bundle from Ways to connect."], okLabel: "Restart GUI" }))) return;
       try {
         await api("/api/gui/restart", { method: "POST", body: {} });
         toast("Restarting the GUI…", "warn");
@@ -3691,7 +3691,7 @@
       $("#connection-banner").hidden = false;
       return;
     }
-    const savedFilter = storageGet("backup-suite-gui-entry-filter");
+    const savedFilter = storageGet("filestow-gui-entry-filter");
     if (savedFilter) $("#entry-filter").value = savedFilter;
     route();
     connectStream();

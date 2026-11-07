@@ -103,8 +103,8 @@ async function main() {
   // A fake newer release (file:// URLs), so the Updates tab and the notice render offline.
   const releaseDir = path.join(fixture.root, "release");
   require("child_process").execFileSync("python3", [path.join(__dirname, "..", "..", "..", "tests", "fixtures", "make-fake-release.py"), releaseDir, "9.9.9"]);
-  fixture.env.BACKUP_SUITE_UPDATE_LATEST_URL = `file://${releaseDir}/latest.json`;
-  fixture.env.BACKUP_SUITE_UPDATE_DOWNLOAD_BASE = `file://${releaseDir}/`;
+  fixture.env.FILESTOW_UPDATE_LATEST_URL = `file://${releaseDir}/latest.json`;
+  fixture.env.FILESTOW_UPDATE_DOWNLOAD_BASE = `file://${releaseDir}/`;
   const { createApp } = require("../../server");
   const app = createApp({ env: fixture.env });
   const server = http.createServer(app.handle);
@@ -267,7 +267,7 @@ async function main() {
         await page.click("#update-button");
         await page.waitForSelector('#update-dialog[open] #update-body h3:has-text("Latest release: 9.9.9")', { timeout: 15000 });
         if (!(await page.$('#update-body button:has-text("Update everything to 9.9.9")'))) failures.push(`${label}/${scheme}: no Update everything button`);
-        if (!(await page.$('#update-body button:has-text("Only Backup Suite")'))) failures.push(`${label}/${scheme}: no Backup Suite update button`);
+        if (!(await page.$('#update-body button:has-text("Only FileStow")'))) failures.push(`${label}/${scheme}: no FileStow update button`);
         if (!(await page.$('#update-body button:has-text("Only the GUI")'))) failures.push(`${label}/${scheme}: no GUI update button`);
         await page.screenshot({ path: path.join(screenshotDir, `${label}-${scheme}-updates.png`), fullPage: true });
         // A backup is running in this fixture: the update asks whether to stop it.
@@ -279,10 +279,10 @@ async function main() {
         await page.click('#confirm-dialog button[value="cancel"]');
         await page.waitForFunction(() => !document.querySelector("#confirm-dialog[open]"));
         if (!(await page.$("#update-dialog[open]"))) failures.push(`${label}/${scheme}: cancelling closed the Updates window`);
-        // The update terminal (shown for a Backup Suite older than 1.1): its layout.
+        // The update terminal (shown for a FileStow without the update service): its layout.
         await page.evaluate(() => {
           document.querySelector("#update-terminal").hidden = false;
-          document.querySelector("#update-terminal-output").textContent = "sudo asks for your password: type it in the input box below and press Send.\n[sudo] password for user: \nStarted backup-suite-update.service; its log follows.\n";
+          document.querySelector("#update-terminal-output").textContent = "sudo asks for your password: type it in the input box below and press Send.\n[sudo] password for user: \nStarted filestow-update.service; its log follows.\n";
         });
         const overflow = await page.evaluate(() => {
           const dialog = document.querySelector("#update-dialog");

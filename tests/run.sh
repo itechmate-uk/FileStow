@@ -7,7 +7,7 @@ PASS_COUNT=0
 FAIL_COUNT=0
 
 # Test runs are heavy work: they yield CPU and disk to backups and services.
-if [ -z "${BACKUP_SUITE_TESTS_NO_NICE:-}" ]; then
+if [ -z "${FILESTOW_TESTS_NO_NICE:-}" ]; then
     renice -n 10 -p $$ > /dev/null 2>&1 || true
     ionice -c 3 -p $$ > /dev/null 2>&1 || true
 fi
@@ -90,8 +90,8 @@ run_backup() {
     local test_root="$1"
     shift
     HOME="$test_root/home" \
-        BACKUP_SUITE_CONFIG_DIR="$test_root/config" \
-        BACKUP_SUITE_LOG_MODE=console \
+        FILESTOW_CONFIG_DIR="$test_root/config" \
+        FILESTOW_LOG_MODE=console \
         "$ROOT_DIR/bin/file-backup.sh" "$@"
 }
 
@@ -289,7 +289,7 @@ test_durable_failure_history() {
     cat >> "$test_root/config/global.conf" <<'EOF'
 NOTIFY_FAILURES_ENABLED="1"
 NOTIFY_NTFY_TOPIC_URL="https://ntfy.invalid/test-topic"
-NOTIFY_NTFY_TITLE_PREFIX="Backup Suite Test"
+NOTIFY_NTFY_TITLE_PREFIX="FileStow Test"
 NOTIFY_NTFY_PRIORITY="high"
 NOTIFY_JOURNAL_LINES="5"
 NOTIFY_DURABLE_LOG_LINES="20"
@@ -301,7 +301,7 @@ EOF
     HOME="$test_root/home" \
         PATH="$test_root/bin:$PATH" \
         FAKE_CURL_LOG="$test_root/curl.log" \
-        BACKUP_SUITE_CONFIG_DIR="$test_root/config" \
+        FILESTOW_CONFIG_DIR="$test_root/config" \
         "$ROOT_DIR/bin/notify-failure.sh" file-backup.service > "$output_file" 2>&1
 
     failure_record=$(find "$test_root/state/failures" -type f -name '*file-backup.service.log' -print -quit)
@@ -420,7 +420,7 @@ test_explicit_project_filter() {
     write_test_config "$test_root" "$ROOT_DIR/tests/fixtures/fake-rclone.sh" 'fake:'
     printf '1|projects|%s|fixed|projects|.nosync|children\n' "$test_root/projects" > "$test_root/config/file-sources.conf"
 
-    BACKUP_SUITE_PROJECT_FILTER_FILE="$filter_file" \
+    FILESTOW_PROJECT_FILTER_FILE="$filter_file" \
         FAKE_RCLONE_SCENARIO=isolation \
         FAKE_RCLONE_STATE="$test_root/fake" \
         run_backup "$test_root" > "$output_file" 2>&1
@@ -440,9 +440,9 @@ test_resource_unit_and_link_flags() {
     rendered_timer="$test_root/file-backup.timer"
     sed \
         -e "s|__INSTALL_DIR__|$ROOT_DIR|g" \
-        -e 's|__CONFIG_DIR__|/etc/backup-suite|g' \
+        -e 's|__CONFIG_DIR__|/etc/filestow|g' \
         -e 's|__USER_GROUP_DIRECTIVES__||g' \
-        -e 's|__LOCK_FILE__|/var/lib/backup-suite/locks/file-backup.service.lock|g' \
+        -e 's|__LOCK_FILE__|/var/lib/filestow/locks/file-backup.service.lock|g' \
         -e 's|__FILE_BACKUP_RUNTIME_MAX_SEC__|6h|g' \
         "$ROOT_DIR/systemd/file-backup.service.template" > "$rendered_unit"
 
@@ -454,11 +454,11 @@ test_resource_unit_and_link_flags() {
     assert_not_contains "$rendered_unit" 'systemd-fork-run.sh'
     assert_contains "$ROOT_DIR/systemd/file-backup.timer.template" 'Persistent=true'
     assert_contains "$ROOT_DIR/systemd/file-backup.timer.template" 'RandomizedDelaySec=__FILE_BACKUP_RANDOMIZED_DELAY_SEC__'
-    assert_contains "$ROOT_DIR/systemd/backup-suite-notify@.service.template" 'Restart=no'
+    assert_contains "$ROOT_DIR/systemd/filestow-notify@.service.template" 'Restart=no'
     assert_contains "$ROOT_DIR/bin/file-backup-service.sh" 'exec /usr/bin/flock'
-    assert_contains "$rendered_unit" '/var/lib/backup-suite/locks/file-backup.service.lock'
-    [ "$(grep -c '^OnFailure=backup-suite-notify@%n.service$' "$rendered_unit")" -eq 1 ] || fail_test 'file backup must have exactly one OnFailure notification target'
-    assert_not_contains "$ROOT_DIR/systemd/backup-suite-notify@.service.template" 'file-backup.service'
+    assert_contains "$rendered_unit" '/var/lib/filestow/locks/file-backup.service.lock'
+    [ "$(grep -c '^OnFailure=filestow-notify@%n.service$' "$rendered_unit")" -eq 1 ] || fail_test 'file backup must have exactly one OnFailure notification target'
+    assert_not_contains "$ROOT_DIR/systemd/filestow-notify@.service.template" 'file-backup.service'
     sed \
         -e 's|__FILE_BACKUP_ONCALENDAR__|*:0/30|g' \
         -e 's|__FILE_BACKUP_RANDOMIZED_DELAY_SEC__|15m|g' \
@@ -468,13 +468,13 @@ test_resource_unit_and_link_flags() {
         fail_test 'file-backup resource controls leaked into unrelated service templates'
     fi
     # Every shipped unit caps swap: MemoryMax counts RAM only (lesson of 2026-10-14).
-    for template in database-backup.service database-size-check.service backup-suite-notify@.service \
-        backup-suite-watchdog@.service backup-suite-control@.service; do
+    for template in database-backup.service database-size-check.service filestow-notify@.service \
+        filestow-watchdog@.service filestow-control@.service; do
         assert_contains "$ROOT_DIR/systemd/$template.template" 'MemorySwapMax='
     done
     assert_contains "$ROOT_DIR/systemd/file-backup.service.template" 'MemorySwapMax='
-    assert_contains "$ROOT_DIR/gui/systemd/backup-suite-gui.service.template" 'MemorySwapMax='
-    assert_contains "$ROOT_DIR/gui/systemd/backup-suite-gui-watchdog.service.template" 'MemorySwapMax='
+    assert_contains "$ROOT_DIR/gui/systemd/filestow-gui.service.template" 'MemorySwapMax='
+    assert_contains "$ROOT_DIR/gui/systemd/filestow-gui-watchdog.service.template" 'MemorySwapMax='
     if grep -Eq -- '(^|[[:space:]])(-L|--copy-links)([[:space:]]|$)' "$ROOT_DIR/bin/file-backup.sh"; then
         fail_test 'file backup still contains copy-link behavior'
     fi
@@ -507,7 +507,7 @@ test_production_migration_runner_guards() {
     assert_contains "$runner" 'systemctl disable --now "$TIMER_UNIT"'
     assert_contains "$runner" 'trap on_exit EXIT'
     assert_contains "$runner" 'APPLY LINK MIGRATION'
-    assert_contains "$runner" 'BACKUP_SUITE_RESTORE_MAX_BYTES'
+    assert_contains "$runner" 'FILESTOW_RESTORE_MAX_BYTES'
     assert_contains "$runner" 'systemctl enable --now "$TIMER_UNIT"'
     assert_contains "$runner" 'run_file_backup_service "link-migration-report" link-migration-report'
     assert_contains "$runner" 'run_file_backup_service "confirm-link-migration" confirm-link-migration'
@@ -525,7 +525,7 @@ test_production_migration_runner_guards() {
     assert_contains "$runner" '.ai-metadata/claude/events/**'
     assert_contains "$runner" '--only-project'
     assert_contains "$runner" 'PROJECT_FILTER_FILE="$STATE_DIR/validation/${RUN_ID}-project-filter"'
-    assert_not_contains "$runner" 'PROJECT_FILTER_FILE="/run/backup-suite/file-backup-projects"'
+    assert_not_contains "$runner" 'PROJECT_FILTER_FILE="/run/filestow/file-backup-projects"'
     assert_contains "$runner" '[[ "$service_exec_start" == *"$INSTALL_DIR/bin/file-backup-service.sh"* ]]'
     assert_not_contains "$runner" '[ "$(systemctl show "$SERVICE_UNIT" -p ExecStart --value)" = *"$INSTALL_DIR/bin/file-backup-service.sh"* ]'
     assert_contains "$runner" 'Expected exactly one failed-sync notification record'
@@ -566,7 +566,7 @@ write_notify_config() {
     cat >> "$test_root/config/global.conf" <<'EOF'
 NOTIFY_FAILURES_ENABLED="1"
 NOTIFY_NTFY_TOPIC_URL="https://ntfy.invalid/test-topic"
-NOTIFY_NTFY_TITLE_PREFIX="Backup Suite Test"
+NOTIFY_NTFY_TITLE_PREFIX="FileStow Test"
 NOTIFY_NTFY_PRIORITY="high"
 NOTIFY_JOURNAL_LINES="5"
 NOTIFY_DURABLE_LOG_LINES="20"
@@ -606,8 +606,8 @@ test_profiles_and_dropin() {
             HOME="$test_root/home" \
             PATH="$test_root/bin:$PATH" \
             FAKE_SYSTEMCTL_LOG="$test_root/systemctl.log" \
-            BACKUP_SUITE_CONFIG_DIR="$test_root/config" \
-            BACKUP_SUITE_CGROUP_ROOT="$test_root/cgroup" \
+            FILESTOW_CONFIG_DIR="$test_root/config" \
+            FILESTOW_CGROUP_ROOT="$test_root/cgroup" \
             "$ROOT_DIR/bin/backup-profile.sh" "$@"
     }
 
@@ -744,12 +744,12 @@ test_failure_notification_description() {
     } > "$test_root/state/logs/backup-file.log"
 
     HOME="$test_root/home" PATH="$test_root/bin:$PATH" FAKE_CURL_LOG="$test_root/curl.log" FAKE_SYSTEMCTL_LOG="$test_root/systemctl.log" \
-        BACKUP_SUITE_CONFIG_DIR="$test_root/config" \
+        FILESTOW_CONFIG_DIR="$test_root/config" \
         "$ROOT_DIR/bin/notify-failure.sh" file-backup.service > "$output_file" 2>&1
 
     assert_contains "$test_root/curl.log" 'arg: PUT'
     assert_contains "$test_root/curl.log" 'arg: Filename: '
-    assert_contains "$test_root/curl.log" 'arg: Title: Backup Suite Test failure on'
+    assert_contains "$test_root/curl.log" 'arg: Title: FileStow Test failure on'
     message=$(curl_message_header "$test_root/curl.log")
     [ -n "$message" ] || fail_test 'no readable message was sent with the attachment'
     [ "${#message}" -lt 4096 ] || fail_test "ntfy message is ${#message} bytes; ntfy would turn it into an attachment"
@@ -763,7 +763,7 @@ test_failure_notification_description() {
 
     rm -f "$test_root/curl.log"
     HOME="$test_root/home" PATH="$test_root/bin:$PATH" FAKE_CURL_LOG="$test_root/curl.log" FAKE_CURL_FAIL_PUT=1 FAKE_SYSTEMCTL_LOG="$test_root/systemctl.log" \
-        BACKUP_SUITE_CONFIG_DIR="$test_root/config" \
+        FILESTOW_CONFIG_DIR="$test_root/config" \
         "$ROOT_DIR/bin/notify-failure.sh" file-backup.service > "$output_file" 2>&1
     [ "$(grep -c '^curl invoked' "$test_root/curl.log")" -eq 2 ] || fail_test 'a failed attachment upload must fall back to one plain message'
     assert_contains "$test_root/curl.log" 'arg: --data-binary'
@@ -851,10 +851,10 @@ run_watchdog() {
         PATH="$test_root/bin:$PATH" \
         FAKE_CURL_LOG="$test_root/curl.log" \
         FAKE_SYSTEMCTL_LOG="$test_root/systemctl.log" \
-        BACKUP_SUITE_CONFIG_DIR="$test_root/config" \
+        FILESTOW_CONFIG_DIR="$test_root/config" \
         WATCHDOG_CGROUP_DIR="$test_root/cgroup" \
         WATCHDOG_PROC_DIR="$test_root/proc" \
-        BACKUP_SUITE_CGROUP_ROOT="$test_root/cgroup-root" \
+        FILESTOW_CGROUP_ROOT="$test_root/cgroup-root" \
         WATCHDOG_INTERVAL_SECONDS=0.1 \
         timeout 30 "$ROOT_DIR/bin/backup-watchdog.sh" file-backup.service > "$test_root/watchdog.log" 2>&1
 }
@@ -1068,7 +1068,7 @@ test_watchdog_thaws_before_stop_and_retries() {
 
     # notify-failure.sh must not push a second message for a stop the watchdog explained.
     HOME="$test_root/home" PATH="$test_root/bin:$PATH" FAKE_CURL_LOG="$test_root/curl-failure.log" FAKE_SYSTEMCTL_LOG="$test_root/systemctl.log" \
-        BACKUP_SUITE_CONFIG_DIR="$test_root/config" FAKE_SYSTEMCTL_RESULT=signal \
+        FILESTOW_CONFIG_DIR="$test_root/config" FAKE_SYSTEMCTL_RESULT=signal \
         "$ROOT_DIR/bin/notify-failure.sh" file-backup.service > "$test_root/notify.log" 2>&1
     assert_contains "$test_root/notify.log" 'Failure recorded without a push'
     [ ! -e "$test_root/curl-failure.log" ] || fail_test 'a duplicate failure push was sent'
@@ -1139,15 +1139,15 @@ test_watchdog_unit_and_deploy_guards() {
     test_root=$(mktemp -d)
     sed \
         -e "s|__INSTALL_DIR__|$ROOT_DIR|g" \
-        -e 's|__CONFIG_DIR__|/etc/backup-suite|g' \
+        -e 's|__CONFIG_DIR__|/etc/filestow|g' \
         -e 's|__USER_GROUP_DIRECTIVES__||g' \
         -e 's|__WATCHDOG_PRIVILEGED_DIRECTIVES__|Nice=-5\nOOMScoreAdjust=-900|g' \
-        "$ROOT_DIR/systemd/backup-suite-watchdog@.service.template" > "$test_root/backup-suite-watchdog@.service"
+        "$ROOT_DIR/systemd/filestow-watchdog@.service.template" > "$test_root/filestow-watchdog@.service"
     for directive in 'ExecStart='"$ROOT_DIR"'/bin/backup-watchdog.sh %i.service' 'After=%i.service' 'Restart=no' 'OOMScoreAdjust=-900' 'MemoryMax=64M'; do
-        assert_contains "$test_root/backup-suite-watchdog@.service" "$directive"
+        assert_contains "$test_root/filestow-watchdog@.service" "$directive"
     done
-    systemd-analyze verify "$test_root/backup-suite-watchdog@file-backup.service" >/dev/null
-    assert_contains "$ROOT_DIR/systemd/file-backup.service.template" 'Wants=backup-suite-watchdog@file-backup.service'
+    systemd-analyze verify "$test_root/filestow-watchdog@file-backup.service" >/dev/null
+    assert_contains "$ROOT_DIR/systemd/file-backup.service.template" 'Wants=filestow-watchdog@file-backup.service'
     assert_contains "$ROOT_DIR/systemd/file-backup.service.template" 'OOMPolicy=stop'
     assert_contains "$ROOT_DIR/systemd/file-backup.service.template" 'MemorySwapMax=256M'
 
@@ -1160,19 +1160,19 @@ test_watchdog_unit_and_deploy_guards() {
     assert_contains "$deploy" 'install_swap_cap_dropin database-size-check.service'
     assert_contains "$deploy" 'install_runtime_preserve_dropin database-backup.service'
     assert_contains "$deploy" 'install_runtime_preserve_dropin database-size-check.service'
-    # /run/backup-suite holds the GUI's control socket: no unit may delete it on stop.
+    # /run/filestow holds the GUI's control socket: no unit may delete it on stop.
     local template
     for template in "$ROOT_DIR"/systemd/*.template; do
-        if grep -q '^RuntimeDirectory=backup-suite' "$template"; then
-            grep -Fxq 'RuntimeDirectoryPreserve=yes' "$template" || fail_test "$(basename "$template") must keep /run/backup-suite"
+        if grep -q '^RuntimeDirectory=filestow' "$template"; then
+            grep -Fxq 'RuntimeDirectoryPreserve=yes' "$template" || fail_test "$(basename "$template") must keep /run/filestow"
         fi
     done
     assert_contains "$deploy" 'bin/apply-schedule.sh" --no-reload'
     assert_contains "$deploy" 'backup-watchdog.sh" "$SERVICE_UNIT" --self-test'
     assert_contains "$deploy" 'backup-profile.sh" set "$REQUESTED_PROFILE"'
     assert_contains "$deploy" 'backup-profile.sh" adaptive "$REQUESTED_PROFILE" "$REQUESTED_FLOOR"'
-    assert_contains "$ROOT_DIR/setup.sh" 'backup-suite-watchdog@.service.template'
-    assert_contains "$ROOT_DIR/production-file-backup-migrate.sh" 'backup-suite-watchdog@.service.template'
+    assert_contains "$ROOT_DIR/setup.sh" 'filestow-watchdog@.service.template'
+    assert_contains "$ROOT_DIR/production-file-backup-migrate.sh" 'filestow-watchdog@.service.template'
     "$deploy" --help >/dev/null
     rm -rf "$test_root"
 }
@@ -1184,9 +1184,9 @@ profile_cli() {
         HOME="$test_root/home" \
         PATH="$test_root/bin:$PATH" \
         FAKE_SYSTEMCTL_LOG="$test_root/systemctl.log" \
-        BACKUP_SUITE_CONFIG_DIR="$test_root/config" \
-        BACKUP_SUITE_PROC_DIR="$test_root/proc" \
-        BACKUP_SUITE_CPU_COUNT=4 \
+        FILESTOW_CONFIG_DIR="$test_root/config" \
+        FILESTOW_PROC_DIR="$test_root/proc" \
+        FILESTOW_CPU_COUNT=4 \
         "$ROOT_DIR/bin/backup-profile.sh" "$@"
 }
 
@@ -1386,8 +1386,8 @@ control_call() {
     printf '%s\n' "$request" | HOME="$test_root/home" PATH="$test_root/bin:$PATH" \
         FAKE_CURL_LOG="$test_root/curl.log" FAKE_SYSTEMCTL_LOG="$test_root/systemctl.log" \
         FAKE_JOURNALCTL_LOG="$test_root/journalctl.log" \
-        BACKUP_SUITE_CONFIG_DIR="$test_root/config" \
-        BACKUP_SUITE_PROC_DIR="$test_root/proc" \
+        FILESTOW_CONFIG_DIR="$test_root/config" \
+        FILESTOW_PROC_DIR="$test_root/proc" \
         "$ROOT_DIR/bin/backup-control.sh" "$@"
 }
 
@@ -1487,9 +1487,9 @@ test_control_jobs() {
     # Refusals: outside the allowed roots, a system folder, a folder holding Backup
     # Suite's own config, a duplicate name, an overlapping destination, | in a field.
     reply=$(control_call "$test_root" '{"verb":"job.check","args":{"job":{"label":"etc","source":"/etc","destination_mode":"fixed","destination_value":"x","isolation":"single"}}}')
-    [ "$(json_field "$reply" 'any("only folders under" in p for p in d["data"]["problems"]) and any("system or Backup Suite" in p for p in d["data"]["problems"])')" = "True" ] || fail_test "/etc must be refused: $reply"
+    [ "$(json_field "$reply" 'any("only folders under" in p for p in d["data"]["problems"]) and any("system or FileStow" in p for p in d["data"]["problems"])')" = "True" ] || fail_test "/etc must be refused: $reply"
     reply=$(control_call "$test_root" "{\"verb\":\"job.check\",\"args\":{\"job\":{\"label\":\"all\",\"source\":\"$test_root\",\"destination_mode\":\"fixed\",\"destination_value\":\"all\",\"isolation\":\"single\"}}}")
-    [ "$(json_field "$reply" 'any("system or Backup Suite" in p for p in d["data"]["problems"])')" = "True" ] || fail_test "a source holding the config must be refused: $reply"
+    [ "$(json_field "$reply" 'any("system or FileStow" in p for p in d["data"]["problems"])')" = "True" ] || fail_test "a source holding the config must be refused: $reply"
     reply=$(control_call "$test_root" "{\"verb\":\"job.check\",\"args\":{\"job\":{\"label\":\"workspace\",\"source\":\"$test_root/web\",\"destination_mode\":\"fixed\",\"destination_value\":\"projects/workspace/sub\",\"isolation\":\"single\"}}}")
     [ "$(json_field "$reply" 'any("already named" in p for p in d["data"]["problems"]) and any("overlaps job workspace" in p for p in d["data"]["problems"])')" = "True" ] || fail_test "duplicate name and overlapping destination: $reply"
     reply=$(control_call "$test_root" "{\"verb\":\"job.save\",\"args\":{\"expect_sha\":\"$sha\",\"job\":{\"label\":\"bad|name\",\"source\":\"$test_root/web\",\"destination_mode\":\"fixed\",\"destination_value\":\"sites/web\",\"isolation\":\"single\"}}}")
@@ -1800,7 +1800,7 @@ test_control_profile_matches_cli() {
     [ "$(json_field "$reply" 'd["ok"]')" = "True" ] || fail_test "profile.set failed: $reply"
     [ "$(json_field "$reply" 'd["data"]["profiles"]["ladder"]')" = "['moderate', 'slow']" ] || fail_test 'ladder not returned'
     HOME="$cli_root/home" PATH="$cli_root/bin:$PATH" FAKE_SYSTEMCTL_LOG="$cli_root/systemctl.log" \
-        BACKUP_SUITE_CONFIG_DIR="$cli_root/config" "$ROOT_DIR/bin/backup-profile.sh" adaptive moderate slow > /dev/null
+        FILESTOW_CONFIG_DIR="$cli_root/config" "$ROOT_DIR/bin/backup-profile.sh" adaptive moderate slow > /dev/null
 
     diff <(grep '^FILE_BACKUP_PROFILE' "$gui_root/config/global.conf") <(grep '^FILE_BACKUP_PROFILE' "$cli_root/config/global.conf") \
         || fail_test 'GUI and CLI wrote different profile keys'
@@ -1847,7 +1847,7 @@ test_control_actions_and_peer_check() {
     reply=$(control_call "$test_root" '{"verb":"status"}' --peer "0-1234-notanumber")
     [ "$(json_field "$reply" 'd["error"]["code"]')" = "forbidden" ] || fail_test "bad peer was allowed: $reply"
     own_group=$(id -gn)
-    reply=$(BACKUP_SUITE_GUI_GROUP="$own_group" control_call "$test_root" '{"verb":"status"}' --peer "3-1234-$(id -u)")
+    reply=$(FILESTOW_GUI_GROUP="$own_group" control_call "$test_root" '{"verb":"status"}' --peer "3-1234-$(id -u)")
     [ "$(json_field "$reply" 'd["ok"]')" = "True" ] || fail_test "group member refused: $reply"
     [ "$(json_field "$reply" 'd["data"]["caller"]["uid"]')" = "$(id -u)" ] || fail_test 'caller uid not taken from the peer'
 }
@@ -1873,7 +1873,7 @@ test_events_and_progress_files() {
     assert_contains "$test_root/state/events.jsonl" '"category":"run-finished"'
 
     # ntfy_publish records an event even when ntfy is off, as valid JSON.
-    HOME="$test_root/home" PATH="$test_root/bin:$PATH" FAKE_CURL_LOG="$test_root/curl.log" BACKUP_SUITE_CONFIG_DIR="$test_root/config" \
+    HOME="$test_root/home" PATH="$test_root/bin:$PATH" FAKE_CURL_LOG="$test_root/curl.log" FILESTOW_CONFIG_DIR="$test_root/config" \
         bash -c '. "$1/bin/common.sh"; . "$1/bin/notify-lib.sh"; load_global_config
             for i in $(seq 1 3); do ntfy_publish "title \"$i\"" high "x" "line one
 line two	tab \\ backslash" "" "" watchdog-stop > /dev/null; done' _ "$ROOT_DIR"
@@ -1908,17 +1908,17 @@ test_gui_broker_installer_guards() {
         assert_contains "$output_file" 'Run as root'
     fi
     # Templates render without leftover placeholders.
-    for template in backup-suite-control.socket.template backup-suite-control@.service.template; do
+    for template in filestow-control.socket.template filestow-control@.service.template; do
         sed -e 's|__INSTALL_DIR__|/opt/x|g' -e 's|__CONFIG_DIR__|/etc/x|g' -e 's|__STATE_DIR__|/var/lib/x|g' \
-            -e 's|__CANONICAL_CONFIG_DIR__|/opt/x-src/config|g' -e 's|__GUI_GROUP__|backup-suite-gui|g' \
+            -e 's|__CANONICAL_CONFIG_DIR__|/opt/x-src/config|g' -e 's|__GUI_GROUP__|filestow-gui|g' \
             "$ROOT_DIR/systemd/$template" > "$test_root/$template"
         if grep -Eq '__[A-Z0-9_]+__' "$test_root/$template"; then
             fail_test "placeholder left in $template"
         fi
     done
-    assert_contains "$test_root/backup-suite-control.socket.template" 'SocketMode=0660'
-    assert_contains "$test_root/backup-suite-control.socket.template" 'ExecStartPost=/opt/x/bin/install-gui-broker.sh --refresh-acl'
-    assert_contains "$test_root/backup-suite-control@.service.template" 'ExecStart=/opt/x/bin/backup-control.sh --peer %i'
+    assert_contains "$test_root/filestow-control.socket.template" 'SocketMode=0660'
+    assert_contains "$test_root/filestow-control.socket.template" 'ExecStartPost=/opt/x/bin/install-gui-broker.sh --refresh-acl'
+    assert_contains "$test_root/filestow-control@.service.template" 'ExecStart=/opt/x/bin/backup-control.sh --peer %i'
 }
 
 make_fake_release() {
@@ -1932,11 +1932,11 @@ test_self_update() {
     # the control verbs update.status and update.apply.
     local test_root updater reply release_dir
     test_root=$(mktemp -d)
-    updater="$ROOT_DIR/bin/backup-suite-update.py"
+    updater="$ROOT_DIR/bin/filestow-update.py"
     release_dir="$test_root/release"
     make_fake_release "$release_dir" 9.9.9
-    export BACKUP_SUITE_UPDATE_LATEST_URL="file://$release_dir/latest.json"
-    export BACKUP_SUITE_UPDATE_DOWNLOAD_BASE="file://$release_dir/"
+    export FILESTOW_UPDATE_LATEST_URL="file://$release_dir/latest.json"
+    export FILESTOW_UPDATE_DOWNLOAD_BASE="file://$release_dir/"
     export UPDATE_MARK="$test_root/mark.log"
 
     reply=$(python3 -I "$updater" check --current 1.0.1)
@@ -1949,21 +1949,21 @@ test_self_update() {
     assert_contains "$test_root/reply.json" 'older than 9.9.10'
     # A release published after the check: the latest is installed instead.
     python3 -I "$updater" apply --version 9.9.8 --state-dir "$test_root/state1" > "$test_root/reply.json" || { cat "$test_root/reply.json" >&2; fail_test 'apply of an older request failed'; }
-    assert_contains "$test_root/state1/update-backup-suite-9.9.8.log" 'installing 9.9.9 instead of 9.9.8'
+    assert_contains "$test_root/state1/update-filestow-9.9.8.log" 'installing 9.9.9 instead of 9.9.8'
     reply=$(python3 -I "$updater" status --state-dir "$test_root/state1")
     [ "$(json_field "$reply" 'd["data"]["version"]')" = "9.9.9" ] || fail_test "not 9.9.9 after a newer release: $reply"
     : > "$UPDATE_MARK"
 
-    # As in backup-suite-update.service: no HOME in the environment.
-    env -u HOME python3 -I "$updater" apply --version 9.9.9 --state-dir "$test_root/state" > "$test_root/reply.json" || { cat "$test_root/reply.json" >&2; cat "$test_root/state/update-backup-suite-9.9.9.log" >&2; fail_test 'apply failed'; }
+    # As in filestow-update.service: no HOME in the environment.
+    env -u HOME python3 -I "$updater" apply --version 9.9.9 --state-dir "$test_root/state" > "$test_root/reply.json" || { cat "$test_root/reply.json" >&2; cat "$test_root/state/update-filestow-9.9.9.log" >&2; fail_test 'apply failed'; }
     assert_contains "$UPDATE_MARK" 'install.sh --no-user-gui home=/'
     reply=$(python3 -I "$updater" status --state-dir "$test_root/state")
     [ "$(json_field "$reply" 'd["data"]["state"]')" = "done" ] || fail_test "status not done: $reply"
-    assert_contains "$test_root/state/update-backup-suite-9.9.9.log" 'SHA-256 matches'
+    assert_contains "$test_root/state/update-filestow-9.9.9.log" 'SHA-256 matches'
 
     # A changed archive is refused before anything runs.
     : > "$UPDATE_MARK"
-    printf 'tampered' >> "$release_dir/v9.9.9/backup-suite-9.9.9.tar.gz"
+    printf 'tampered' >> "$release_dir/v9.9.9/filestow-9.9.9.tar.gz"
     python3 - "$release_dir" <<'PY'
 import json, os, sys
 path = os.path.join(sys.argv[1], "latest.json")
@@ -2003,14 +2003,14 @@ PY
     [ "$(json_field "$reply" 'd["error"]["code"]')" = "invalid_request" ] || fail_test "an older version was accepted: $reply"
     printf '#!/bin/bash\nprintf "%%s\\n" "$*" >> "%s"\n' "$test_root/systemd-run.log" > "$test_root/fake-systemd-run"
     chmod 755 "$test_root/fake-systemd-run"
-    reply=$(BACKUP_SUITE_SYSTEMD_RUN="$test_root/fake-systemd-run" control_call "$test_root/control" '{"verb":"update.apply","args":{"version":"9.9.9","stop_running":true}}')
+    reply=$(FILESTOW_SYSTEMD_RUN="$test_root/fake-systemd-run" control_call "$test_root/control" '{"verb":"update.apply","args":{"version":"9.9.9","stop_running":true}}')
     [ "$(json_field "$reply" 'd["ok"]')" = "True" ] || fail_test "update.apply failed: $reply"
-    assert_contains "$test_root/systemd-run.log" '--user --unit backup-suite-update --collect'
+    assert_contains "$test_root/systemd-run.log" '--user --unit filestow-update --collect'
     assert_contains "$test_root/systemd-run.log" 'apply --version 9.9.9'
     assert_contains "$test_root/systemd-run.log" '--stop-running'
     assert_contains "$test_root/control/state/gui/audit.jsonl" '"verb": "update.apply"'
 
-    unset BACKUP_SUITE_UPDATE_LATEST_URL BACKUP_SUITE_UPDATE_DOWNLOAD_BASE UPDATE_MARK
+    unset FILESTOW_UPDATE_LATEST_URL FILESTOW_UPDATE_DOWNLOAD_BASE UPDATE_MARK
     rm -rf "$test_root"
 }
 
@@ -2046,24 +2046,24 @@ FAKE
     }
 
     run_installer --dry-run > "$test_root/dry.log" 2>&1 || { cat "$test_root/dry.log" >&2; fail_test 'install.sh --dry-run failed'; }
-    [ ! -e "$home/.config/backup-suite" ] || fail_test 'a dry run created the config'
+    [ ! -e "$home/.config/filestow" ] || fail_test 'a dry run created the config'
 
     run_installer > "$test_root/install.log" 2>&1 || { tail -20 "$test_root/install.log" >&2; fail_test 'install.sh failed'; }
-    config_dir="$home/.local/share/backup-suite-src/config"
-    assert_symlink_target "$home/.config/backup-suite/global.conf" "$config_dir/global.conf"
-    assert_file "$home/.local/share/backup-suite/bin/apply-schedule.sh"
-    assert_file "$home/.local/share/backup-suite/bin/backup-control.py"
+    config_dir="$home/.local/share/filestow-src/config"
+    assert_symlink_target "$home/.config/filestow/global.conf" "$config_dir/global.conf"
+    assert_file "$home/.local/share/filestow/bin/apply-schedule.sh"
+    assert_file "$home/.local/share/filestow/bin/backup-control.py"
     assert_file "$home/.config/systemd/user/file-backup.timer"
     [ -z "$(grep -v '^#' "$config_dir/file-sources.conf")" ] || fail_test 'the starting file-sources.conf has jobs'
     [ -z "$(grep -v '^#' "$config_dir/rclone.conf")" ] || fail_test 'the starting rclone.conf has remotes'
     [ "$(stat -c %a "$config_dir/rclone.conf")" = 600 ] || fail_test 'rclone.conf is not 0600'
     assert_contains "$test_root/install.log" 'First steps in the GUI'
     if [ -z "$gui_flag" ]; then
-        assert_file "$home/.local/share/backup-suite-gui/app/server.js"
-        assert_file "$home/.config/systemd/user/backup-suite-gui-4337.service"
+        assert_file "$home/.local/share/filestow-gui/app/server.js"
+        assert_file "$home/.config/systemd/user/filestow-gui-4337.service"
     fi
     printf '{"verb":"jobs","args":{}}\n' | env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME HOME="$home" PATH="$fake_bin:$PATH" \
-        FAKE_SYSTEMCTL_LOG="$test_root/systemctl.log" "$home/.local/share/backup-suite/bin/backup-control.sh" > "$test_root/jobs.json"
+        FAKE_SYSTEMCTL_LOG="$test_root/systemctl.log" "$home/.local/share/filestow/bin/backup-control.sh" > "$test_root/jobs.json"
     assert_contains "$test_root/jobs.json" '"jobs":[]'
 
     echo '1|mine|/home/nobody/x|fixed|x|.nosync|single' >> "$config_dir/file-sources.conf"
@@ -2082,7 +2082,7 @@ test_gui_node_suite() {
     # client, server end to end and colour contrast. They need Node >= 18.
     local node_bin=""
     local candidate
-    for candidate in "${BACKUP_SUITE_GUI_NODE:-}" /usr/bin/node /usr/local/bin/node "$(command -v node 2>/dev/null || true)"; do
+    for candidate in "${FILESTOW_GUI_NODE:-}" /usr/bin/node /usr/local/bin/node "$(command -v node 2>/dev/null || true)"; do
         [ -n "$candidate" ] && [ -x "$candidate" ] || continue
         if [ "$("$candidate" -e 'process.stdout.write(process.versions.node.split(".")[0])')" -ge 18 ]; then
             node_bin="$candidate"
@@ -2100,7 +2100,7 @@ test_gui_node_suite() {
         fail_test 'GUI node tests failed'
     }
     # production-deploy.sh runs this suite under sudo, where the control script
-    # would read /etc/backup-suite unless the fixture pins its own config. Run
+    # would read /etc/filestow unless the fixture pins its own config. Run
     # once more as a fake root so that is caught without sudo.
     [ "$(id -u)" -eq 0 ] && return 0
     mkdir -p "$log_dir/fake-root-bin"

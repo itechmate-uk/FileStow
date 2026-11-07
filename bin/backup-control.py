@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Backup Suite control verbs: one JSON request on stdin, one JSON reply on stdout.
+"""FileStow control verbs: one JSON request on stdin, one JSON reply on stdout.
 
-Started only by backup-control.sh, which resolves Backup Suite's configuration
+Started only by backup-control.sh, which resolves FileStow's configuration
 and passes it in BSC_* environment variables. Uses the Python standard library
 only. Every verb is listed in VERBS; anything else is refused without changes.
 """
@@ -38,12 +38,12 @@ EXCLUDE_FILENAME = ENV.get("BSC_EXCLUDE_FILENAME", ".backup-excludes")
 CALLER_UID = ENV.get("BSC_CALLER_UID", str(os.getuid()))
 CALLER_LOGIN = ENV.get("BSC_CALLER_LOGIN", "")
 HOSTNAME = ENV.get("BSC_HOSTNAME", "")
-SYSTEMCTL = ENV.get("BACKUP_SUITE_SYSTEMCTL", "systemctl")
-JOURNALCTL = ENV.get("BACKUP_SUITE_JOURNALCTL", "journalctl")
-PROC_DIR = ENV.get("BACKUP_SUITE_PROC_DIR", "/proc")
+SYSTEMCTL = ENV.get("FILESTOW_SYSTEMCTL", "systemctl")
+JOURNALCTL = ENV.get("FILESTOW_JOURNALCTL", "journalctl")
+PROC_DIR = ENV.get("FILESTOW_PROC_DIR", "/proc")
 
 SERVICES = ["file-backup.service", "database-backup.service", "database-size-check.service",
-            "backup-suite-watchdog@file-backup.service"]
+            "filestow-watchdog@file-backup.service"]
 TIMERS = ["file-backup.timer", "database-backup.timer", "database-size-check.timer"]
 SERVICE_PROPERTIES = ["Id", "LoadState", "ActiveState", "SubState", "Result", "UnitFileState",
                       "ExecMainStartTimestamp", "ExecMainExitTimestamp", "ExecMainStatus",
@@ -55,7 +55,7 @@ JOURNAL_SOURCES = {
     "database-backup": ["-u", "database-backup.service"],
     "database-size-check": ["-u", "database-size-check.service"],
     "watchdog": ["-t", "backup-watchdog"],
-    "control": ["-t", "backup-suite-control"],
+    "control": ["-t", "filestow-control"],
 }
 PROFILES = ["slow", "moderate", "fast"]
 PROFILE_RANK = {"slow": 0, "moderate": 1, "fast": 2}
@@ -142,7 +142,7 @@ CONFIG_DEFAULTS = {
     "WATCHDOG_ADAPTIVE_STEP_DOWN_PSI_FULL": "10", "WATCHDOG_ADAPTIVE_STEP_UP_AVAILABLE_PERCENT": "30",
     "WATCHDOG_ADAPTIVE_STEP_UP_SECONDS": "300", "WATCHDOG_ADAPTIVE_COOLDOWN_SECONDS": "120",
     "NOTIFY_FAILURES_ENABLED": "0", "NOTIFY_NTFY_TOPIC_URL": "", "NOTIFY_NTFY_TOKEN": "",
-    "NOTIFY_NTFY_PRIORITY": "high", "NOTIFY_NTFY_TITLE_PREFIX": "Backup Suite", "NOTIFY_NTFY_ATTACH_DETAILS": "1",
+    "NOTIFY_NTFY_PRIORITY": "high", "NOTIFY_NTFY_TITLE_PREFIX": "FileStow", "NOTIFY_NTFY_ATTACH_DETAILS": "1",
     "NOTIFY_NTFY_MESSAGE_MAX_BYTES": "3500",
 }
 
@@ -159,7 +159,7 @@ CONFIG_KEYS.update({
     "REMOTE_HOSTNAME": (("regex", r"([A-Za-z0-9][A-Za-z0-9.-]{0,62})?"), "Name used for this server in the remote (empty: the real hostname)."),
     "FILE_DEFAULT_DESTINATION_ROOT": (("relpath",), "Folder under the remote root for jobs with destination mode default-root."),
     "FILE_ARCHIVE_FOLDER_NAME": (("filename",), "Folder under the remote root where replaced and deleted file versions are kept."),
-    "FILE_ARCHIVE_SUFFIX": (("regex", r"[A-Za-z0-9._-]{0,20}"), "Suffix added to archived versions by older Backup Suite versions."),
+    "FILE_ARCHIVE_SUFFIX": (("regex", r"[A-Za-z0-9._-]{0,20}"), "Suffix added to archived versions by older FileStow versions."),
     "FILE_SYNC_STOP_FILE": (("filename",), "Default stop file: a job or project folder holding it is skipped (a job can name its own)."),
     "FILE_PROJECT_EXCLUDE_FILENAME": (("filename",), "Name of the per-folder exclude files in a source (rclone filter patterns, one per line)."),
     "FILE_VOLATILE_FILENAME": (("filename",), "Name of the per-folder volatile files: patterns allowed to change during a sync."),
@@ -175,8 +175,8 @@ CONFIG_KEYS.update({
     "FILE_RCLONE_BUFFER_SIZE": (("regex", r"[0-9]+[KMG]?"), "Buffer per upload (custom profile only), e.g. 16M."),
     "FILE_RCLONE_TPSLIMIT": (int_range(0, 1000), "API calls per second (custom profile only; 0 = no limit)."),
     "FILE_RCLONE_BWLIMIT": (("regex", r"([0-9]+[KMG]?)?"), "Bandwidth limit (custom profile only), e.g. 4M; empty = unlimited."),
-    "BACKUP_SUITE_LOG_MAX_BYTES": (int_range(1048576, 1073741824), "Size at which the durable run log is rotated."),
-    "BACKUP_SUITE_LOG_KEEP_FILES": (int_range(1, 200), "Rotated run logs kept."),
+    "FILESTOW_LOG_MAX_BYTES": (int_range(1048576, 1073741824), "Size at which the durable run log is rotated."),
+    "FILESTOW_LOG_KEEP_FILES": (int_range(1, 200), "Rotated run logs kept."),
     "NOTIFY_JOURNAL_LINES": (int_range(10, 2000), "Journal lines included in a failure record."),
     "NOTIFY_DURABLE_LOG_LINES": (int_range(10, 5000), "Run-log lines included in a failure record."),
     "NOTIFY_FAILURE_LOG_KEEP_FILES": (int_range(1, 1000), "Failure records kept."),
@@ -196,7 +196,7 @@ CONFIG_DEFAULTS.update({
     "FILE_GLOBAL_EXCLUDE_PATTERNS": "", "FILE_GLOBAL_VOLATILE_PATTERNS": "", "FILE_PROCESS_CHECK_ENABLED": "1",
     "FILE_PROCESS_CHECK_USER_ONLY": "1", "FILE_PROCESS_CHECK_PATTERNS": "vscode-server", "FILE_STABILITY_INTERVAL_SECONDS": "10",
     "FILE_CHANGED_DETAIL_LIMIT": "20", "FILE_RCLONE_TRANSFERS": "2", "FILE_RCLONE_CHECKERS": "4", "FILE_RCLONE_BUFFER_SIZE": "16M",
-    "FILE_RCLONE_TPSLIMIT": "10", "FILE_RCLONE_BWLIMIT": "", "BACKUP_SUITE_LOG_MAX_BYTES": "10485760", "BACKUP_SUITE_LOG_KEEP_FILES": "10",
+    "FILE_RCLONE_TPSLIMIT": "10", "FILE_RCLONE_BWLIMIT": "", "FILESTOW_LOG_MAX_BYTES": "10485760", "FILESTOW_LOG_KEEP_FILES": "10",
     "NOTIFY_JOURNAL_LINES": "40", "NOTIFY_DURABLE_LOG_LINES": "120", "NOTIFY_FAILURE_LOG_KEEP_FILES": "100",
     "DB_REMOTE_DESTINATION_ROOT": "databases", "DB_RETENTION_DAYS": "14", "DB_RCLONE_TRANSFERS": "4", "DB_RCLONE_CHECKERS": "8",
     "DB_SKIP_UNCHANGED_BACKUPS": "1", "DB_KEEP_LOCAL_AFTER_UPLOAD": "1", "DB_MONITOR_THRESHOLD_MB": "512",
@@ -223,7 +223,7 @@ CONFIG_GROUPS = [
                                       "DB_SKIP_UNCHANGED_BACKUPS", "DB_KEEP_LOCAL_AFTER_UPLOAD", "DB_MONITOR_THRESHOLD_MB", "DB_RCLONE_EXTRA_FLAGS"]),
     ("watchdog", "Watchdog", [key for key in CONFIG_KEYS if key.startswith("WATCHDOG_")]),
     ("ntfy", "Notifications: ntfy channel", [key for key in CONFIG_KEYS if key.startswith("NOTIFY_NTFY_") or key == "NOTIFY_FAILURES_ENABLED"]),
-    ("logs", "Logs and failure records", ["BACKUP_SUITE_LOG_MAX_BYTES", "BACKUP_SUITE_LOG_KEEP_FILES", "NOTIFY_JOURNAL_LINES",
+    ("logs", "Logs and failure records", ["FILESTOW_LOG_MAX_BYTES", "FILESTOW_LOG_KEEP_FILES", "NOTIFY_JOURNAL_LINES",
                                           "NOTIFY_DURABLE_LOG_LINES", "NOTIFY_FAILURE_LOG_KEEP_FILES"]),
     ("install", "Installation (read-only)", ["INSTALL_MODE", "FILE_JOB_SOURCE_ROOTS", "INSTALL_SYSTEMD_UNITS", "ENABLE_TIMERS_AFTER_INSTALL"]
      + ["%s_%s" % (prefix, name) for prefix in ("SYSTEM", "USER") for name in
@@ -434,7 +434,7 @@ def audit(request, verb, args, ok, summary):
     except OSError:
         pass
     try:
-        subprocess.run(["logger", "-t", "backup-suite-control",
+        subprocess.run(["logger", "-t", "filestow-control",
                         "%s by %s (uid %s): %s %s" % (verb, CALLER_LOGIN, CALLER_UID,
                                                       "ok" if ok else "failed", summary[:200])],
                        timeout=5, capture_output=True)
@@ -557,7 +557,7 @@ def verb_status(request):
         "server": server_memory(),
         "events": events_stat_data(),
         # What this installed control script can do: the GUI compares it with what
-        # it needs and says when Backup Suite on the server must be deployed again.
+        # it needs and says when FileStow on the server must be deployed again.
         "verbs": sorted(VERBS),
         "at": now_iso(),
     }
@@ -905,7 +905,7 @@ def verb_config_get(request):
     others = sorted(key for key in values if key not in known)
     groups = [{"id": group_id, "label": label, "keys": keys} for group_id, label, keys in CONFIG_GROUPS]
     if others:
-        # Keys this GUI does not know (older or newer Backup Suite, or a typo): shown read-only.
+        # Keys this GUI does not know (older or newer FileStow, or a typo): shown read-only.
         settings += [config_entry(key, values) for key in others]
         groups.append({"id": "other", "label": "Other keys in global.conf (read-only)", "keys": others})
     return {"path": GLOBAL_CONFIG_FILE, "sha256": file_sha256(path), "settings": settings, "groups": groups}
@@ -1767,7 +1767,7 @@ def verb_job_measure(request):
 #
 # A job may only back up a folder under FILE_JOB_SOURCE_ROOTS (set in global.conf by
 # the server's administrator; the GUI cannot change it), and never a system folder or
-# Backup Suite's own config and state: in system mode the backup runs as root, so a
+# FileStow's own config and state: in system mode the backup runs as root, so a
 # job could otherwise upload any file on the server.
 
 JOB_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
@@ -1874,7 +1874,7 @@ def check_job(fields, rows, editing=None):
             problems.append("Source: only folders under %s may be backed up (FILE_JOB_SOURCE_ROOTS in global.conf, set on the server)." % ", ".join(roots or ["(none)"]))
         for folder in protected_folders():
             if path_within(real_source, folder) or (folder.startswith(real_source.rstrip("/") + "/") and real_source != "/"):
-                problems.append("Source: %s holds system or Backup Suite files (%s) and cannot be backed up by a job." % (source, folder))
+                problems.append("Source: %s holds system or FileStow files (%s) and cannot be backed up by a job." % (source, folder))
                 break
         for row in others:
             other = os.path.realpath(row["source"]) if row["source"] else ""
@@ -2015,7 +2015,7 @@ def write_job_patterns(name, kind, patterns):
     os.makedirs(JOBS_CONFIG_DIR, mode=0o750, exist_ok=True)
     temporary = "%s.tmp.%d" % (path, os.getpid())
     with open(temporary, "w", encoding="utf-8") as handle:
-        handle.write("# Written by the Backup Suite GUI: patterns for every project of job %s.\n" % name)
+        handle.write("# Written by the FileStow GUI: patterns for every project of job %s.\n" % name)
         handle.write("\n".join(patterns) + "\n")
     os.chmod(temporary, 0o640)
     os.replace(temporary, path)
@@ -2153,7 +2153,7 @@ def verb_job_run(request):
 #
 # From the Changing files list: exclude one path (a file, or a folder and all it
 # holds) for one project of a job, or for every project of the job. The patterns
-# live in Backup Suite's config, never in the project's own folder:
+# live in FileStow's config, never in the project's own folder:
 #   CONFIG_DIR/jobs/<job>.excludes                          every project of the job
 #   CONFIG_DIR/jobs/<job>.projects/<child folder>.excludes  one child project
 # file-backup.sh applies both (relative to the project's folder) from the next run.
@@ -2184,7 +2184,7 @@ def write_pattern_file(path, header, patterns):
     os.makedirs(os.path.dirname(path), mode=0o750, exist_ok=True)
     temporary = "%s.tmp.%d" % (path, os.getpid())
     with open(temporary, "w", encoding="utf-8") as handle:
-        handle.write("# Written by the Backup Suite GUI: %s.\n" % header)
+        handle.write("# Written by the FileStow GUI: %s.\n" % header)
         handle.write("\n".join(patterns) + "\n")
     os.chmod(temporary, 0o640)
     os.replace(temporary, path)
@@ -2631,7 +2631,7 @@ def caller_home():
 def source_choice(path, roots, protected):
     """("", "") when a job may back up this folder, else a reason."""
     if any(path_within(path, folder) for folder in protected):
-        return "It holds system or Backup Suite files."
+        return "It holds system or FileStow files."
     if not any(path_within(path, root) for root in roots):
         return "Not under the folders a job may back up (%s)." % ", ".join(roots)
     return ""
@@ -2641,7 +2641,7 @@ def verb_fs_browse(request):
     """Folders on this server for the job source picker. Any folder can be
     browsed (names of folders only, never files), so the picker works like a
     normal one; only folders under FILE_JOB_SOURCE_ROOTS, outside system and
-    Backup Suite folders, can be chosen. Pseudo file systems are not listed."""
+    FileStow folders, can be chosen. Pseudo file systems are not listed."""
     args = get_args(request, ["path"])
     path = args.get("path") or ""
     roots = job_source_roots()
@@ -2685,13 +2685,13 @@ def verb_fs_browse(request):
 
 # --------------------------------------------------------------------------- updates
 #
-# Backup Suite updates itself from this project's GitHub releases with
-# bin/backup-suite-update.py. The update runs in its own transient unit
-# (backup-suite-update.service, as root in system mode), so it outlives this
+# FileStow updates itself from this project's GitHub releases with
+# bin/filestow-update.py. The update runs in its own transient unit
+# (filestow-update.service, as root in system mode), so it outlives this
 # request and the GUI; the GUI follows it with update.status.
 
-UPDATE_UNIT = "backup-suite-update"
-SYSTEMD_RUN = ENV.get("BACKUP_SUITE_SYSTEMD_RUN", "systemd-run")
+UPDATE_UNIT = "filestow-update"
+SYSTEMD_RUN = ENV.get("FILESTOW_SYSTEMD_RUN", "systemd-run")
 
 
 def installed_version():
@@ -2719,7 +2719,7 @@ def update_unit_active():
 
 
 def read_update_status():
-    code, out, err = run([sys.executable, "-I", bin_script("backup-suite-update.py"), "status",
+    code, out, err = run([sys.executable, "-I", bin_script("filestow-update.py"), "status",
                           "--state-dir", update_state_dir()], READ_TIMEOUT)
     try:
         status = json.loads(out).get("data") or {}
@@ -2735,7 +2735,7 @@ def read_update_status():
 def verb_update_status(request):
     get_args(request, [])
     return {"installed": installed_version(), "mode": MODE, "status": read_update_status(),
-            "updater": os.path.isfile(bin_script("backup-suite-update.py"))}
+            "updater": os.path.isfile(bin_script("filestow-update.py"))}
 
 
 def verb_update_apply(request):
@@ -2755,18 +2755,18 @@ def verb_update_apply(request):
     if SCOPE == "user":
         command.append("--user")
     command += ["--unit", UPDATE_UNIT, "--collect", "--quiet",
-                "--description", "Backup Suite update to %s" % version]
-    for name in ("BACKUP_SUITE_UPDATE_LATEST_URL", "BACKUP_SUITE_UPDATE_DOWNLOAD_BASE"):
+                "--description", "FileStow update to %s" % version]
+    for name in ("FILESTOW_UPDATE_LATEST_URL", "FILESTOW_UPDATE_DOWNLOAD_BASE"):
         if ENV.get(name):
             command += ["--setenv", "%s=%s" % (name, ENV[name])]
-    command += ["--", sys.executable, "-I", bin_script("backup-suite-update.py"), "apply",
+    command += ["--", sys.executable, "-I", bin_script("filestow-update.py"), "apply",
                 "--version", version, "--state-dir", update_state_dir()]
     if stop_running:
         command.append("--stop-running")
     code, out, err = run(command, CHANGE_TIMEOUT)
     if code != 0:
         raise ControlError("systemctl_failed", (err or out).strip()[:500] or "systemd-run failed.")
-    record_event("info", "gui-action", "Updating Backup Suite to %s" % version,
+    record_event("info", "gui-action", "Updating FileStow to %s" % version,
                  "Started from the GUI by %s. The installer tests the release first and keeps the previous version if anything fails." % CALLER_LOGIN,
                  UPDATE_UNIT + ".service")
     return {"started": True, "version": version, "unit": UPDATE_UNIT + ".service"}

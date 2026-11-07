@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 lock_file="${1:-}"
-mode="${BACKUP_SUITE_FILE_BACKUP_MODE:-normal}"
+mode="${FILESTOW_FILE_BACKUP_MODE:-normal}"
 
 [ -n "$lock_file" ] || {
     echo "Usage: file-backup-service.sh <lock-file>" >&2
@@ -24,7 +24,7 @@ case "$mode" in
         mode_args=(--journal-only --confirm-link-migration)
         ;;
     *)
-        echo "Invalid BACKUP_SUITE_FILE_BACKUP_MODE: $mode" >&2
+        echo "Invalid FILESTOW_FILE_BACKUP_MODE: $mode" >&2
         exit 64
         ;;
 esac

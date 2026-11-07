@@ -1,13 +1,13 @@
 "use strict";
 
-// Updates from this project's GitHub releases, through scripts/backup-suite-update.py
-// (bin/backup-suite-update.py, copied in when the GUI is installed).
+// Updates from this project's GitHub releases, through scripts/filestow-update.py
+// (bin/filestow-update.py, copied in when the GUI is installed).
 //
 // - check: the latest release, cached (automatic checks at most every 6 hours, a
 //   check on request at most once a minute).
 // - this login's GUI: updated as this login in a transient user unit
-//   (backup-suite-gui-update.service), so the update outlives the GUI's restart.
-// - Backup Suite itself: through the control verb update.apply (as root in
+//   (filestow-gui-update.service), so the update outlives the GUI's restart.
+// - FileStow itself: through the control verb update.apply (as root in
 //   system mode); a system-wide GUI is updated with it.
 
 const fs = require("fs");
@@ -17,7 +17,7 @@ const { spawn } = require("child_process");
 const AUTO_CHECK_MS = 6 * 60 * 60 * 1000;
 const FORCED_CHECK_MS = 60 * 1000;
 const RUN_TIMEOUT_MS = 60 * 1000;
-const GUI_UPDATE_UNIT = "backup-suite-gui-update";
+const GUI_UPDATE_UNIT = "filestow-gui-update";
 
 function parseVersion(text) {
   const match = /^(\d{1,4})\.(\d{1,5})\.(\d{1,6})$/.exec(String(text || "").trim());
@@ -73,15 +73,15 @@ function runJson(command, args, { env = process.env, timeoutMs = RUN_TIMEOUT_MS 
 class Updates {
   constructor({ appDir, version, stateDir, env = process.env, systemGui = false, python = "python3", systemdRun = "systemd-run" }) {
     // The installed GUI has its own copy; a GUI run from a checkout uses bin/'s.
-    const installed = path.join(appDir, "scripts", "backup-suite-update.py");
-    const checkout = path.join(appDir, "..", "bin", "backup-suite-update.py");
+    const installed = path.join(appDir, "scripts", "filestow-update.py");
+    const checkout = path.join(appDir, "..", "bin", "filestow-update.py");
     this.script = fs.existsSync(installed) || !fs.existsSync(checkout) ? installed : checkout;
     this.version = version;
     this.stateDir = path.join(stateDir, "updates");
     this.env = env;
     this.systemGui = systemGui;
-    this.python = env.BACKUP_SUITE_GUI_PYTHON || python;
-    this.systemdRun = env.BACKUP_SUITE_SYSTEMD_RUN || systemdRun;
+    this.python = env.FILESTOW_GUI_PYTHON || python;
+    this.systemdRun = env.FILESTOW_SYSTEMD_RUN || systemdRun;
     this.latest = null;
     this.checkedAt = 0;
     this.pending = null;
@@ -118,7 +118,7 @@ class Updates {
   // Starts this login's GUI update in its own user unit; the GUI restarts during it.
   async startGuiUpdate(version) {
     if (this.systemGui) {
-      throw Object.assign(new Error("This system-wide GUI is updated together with Backup Suite."), { code: "invalid_request" });
+      throw Object.assign(new Error("This system-wide GUI is updated together with FileStow."), { code: "invalid_request" });
     }
     if (!parseVersion(version) || !isNewer(version, this.version)) {
       throw Object.assign(new Error(`Version ${version} is not newer than this GUI (${this.version}).`), { code: "invalid_request" });
@@ -127,8 +127,8 @@ class Updates {
       throw Object.assign(new Error("This GUI has no updater yet; install it once more from a release (./install.sh --gui-only)."), { code: "unavailable" });
     }
     fs.mkdirSync(this.stateDir, { recursive: true, mode: 0o700 });
-    const args = ["--user", "--unit", GUI_UPDATE_UNIT, "--collect", "--quiet", "--description", `Backup Suite GUI update to ${version}`];
-    for (const name of ["BACKUP_SUITE_UPDATE_LATEST_URL", "BACKUP_SUITE_UPDATE_DOWNLOAD_BASE"]) {
+    const args = ["--user", "--unit", GUI_UPDATE_UNIT, "--collect", "--quiet", "--description", `FileStow GUI update to ${version}`];
+    for (const name of ["FILESTOW_UPDATE_LATEST_URL", "FILESTOW_UPDATE_DOWNLOAD_BASE"]) {
       if (this.env[name]) args.push("--setenv", `${name}=${this.env[name]}`);
     }
     args.push("--", this.python, "-I", this.script, "gui-apply", "--version", version, "--state-dir", this.stateDir);
@@ -146,8 +146,8 @@ class Updates {
   }
 }
 
-// The command for the GUI's terminal that updates a Backup Suite which cannot update
-// itself yet (before 1.1: no update verb). In a system install sudo asks for the
+// The command for the GUI's terminal that updates a FileStow which cannot update
+// itself yet (no update verb). In a system install sudo asks for the
 // password in that terminal, like agentw-gui's operations; the update then runs in
 // its own unit (as root), and the terminal shows its log until it ends.
 Updates.prototype.terminalBackendCommand = function terminalBackendCommand(version, mode, stopRunning = false) {
@@ -156,22 +156,22 @@ Updates.prototype.terminalBackendCommand = function terminalBackendCommand(versi
   const quote = (value) => `'${String(value).replace(/'/g, "'\\''")}'`;
   const python = fs.existsSync("/usr/bin/python3") ? "/usr/bin/python3" : "python3";
   const system = mode !== "user";
-  const updater = system ? "/run/backup-suite-update.py" : this.script;
+  const updater = system ? "/run/filestow-update.py" : this.script;
   const steps = [
     "set -e",
     // As root, run a root-owned copy of this GUI's updater, not the one in a home folder.
     system ? `install -m 755 ${quote(this.script)} ${updater}` : "",
-    `${this.env.BACKUP_SUITE_SYSTEMCTL || "systemctl"} ${system ? "" : "--user "}reset-failed backup-suite-update.service >/dev/null 2>&1 || true`,
-    `${this.systemdRun} ${system ? "" : "--user "}--unit backup-suite-update --collect --quiet --description ${quote(`Backup Suite update to ${version}`)} -- ${python} -I ${updater} apply --version ${version}${stopRunning ? " --stop-running" : ""}`,
-    "echo 'Started backup-suite-update.service; its log follows. Closing this window does not stop it.'",
+    `${this.env.FILESTOW_SYSTEMCTL || "systemctl"} ${system ? "" : "--user "}reset-failed filestow-update.service >/dev/null 2>&1 || true`,
+    `${this.systemdRun} ${system ? "" : "--user "}--unit filestow-update --collect --quiet --description ${quote(`FileStow update to ${version}`)} -- ${python} -I ${updater} apply --version ${version}${stopRunning ? " --stop-running" : ""}`,
+    "echo 'Started filestow-update.service; its log follows. Closing this window does not stop it.'",
     `exec ${python} -I ${updater} follow --version ${version}`
   ].filter(Boolean).join("; ");
   const shell = system
-    ? `echo 'sudo asks for your password: type it in the input box below and press Send.'; ${this.env.BACKUP_SUITE_GUI_SUDO || "sudo"} -- sh -c ${quote(steps)}`
+    ? `echo 'sudo asks for your password: type it in the input box below and press Send.'; ${this.env.FILESTOW_GUI_SUDO || "sudo"} -- sh -c ${quote(steps)}`
     : `sh -c ${quote(steps)}`;
   // The GUI's own unit has NoNewPrivileges (sudo cannot work there) and small
   // limits: run the terminal's command in a transient user unit with its own pty.
-  return `${this.systemdRun} --user --pty --quiet --wait --collect --unit backup-suite-gui-terminal --description ${quote("Backup Suite update terminal")} -- sh -c ${quote(shell)}`;
+  return `${this.systemdRun} --user --pty --quiet --wait --collect --unit filestow-gui-terminal --description ${quote("FileStow update terminal")} -- sh -c ${quote(shell)}`;
 };
 
 module.exports = { Updates, isNewer, parseVersion };

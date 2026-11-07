@@ -1,11 +1,11 @@
 "use strict";
 
-// The GUI's only way to Backup Suite: bin/backup-control.sh, reached two ways.
+// The GUI's only way to FileStow: bin/backup-control.sh, reached two ways.
 //
-// - direct (user mode): Backup Suite is installed for this user. The control script
+// - direct (user mode): FileStow is installed for this user. The control script
 //   runs as a child process, as this user.
-// - broker (system mode): Backup Suite runs as root. The GUI connects to
-//   /run/backup-suite/control.sock; systemd runs the same control script as root for
+// - broker (system mode): FileStow runs as root. The GUI connects to
+//   /run/filestow/control.sock; systemd runs the same control script as root for
 //   each connection.
 //
 // Both take one JSON line and answer one JSON line. Identical concurrent reads are
@@ -42,16 +42,16 @@ function homeDir(env) {
 
 function userConfigFile(env = process.env) {
   const base = String(env.XDG_CONFIG_HOME || "").trim() || path.join(homeDir(env), ".config");
-  return path.join(base, "backup-suite", "global.conf");
+  return path.join(base, "filestow", "global.conf");
 }
 
 function brokerSocket(env = process.env) {
-  return String(env.BACKUP_SUITE_CONTROL_SOCKET || "").trim() || "/run/backup-suite/control.sock";
+  return String(env.FILESTOW_CONTROL_SOCKET || "").trim() || "/run/filestow/control.sock";
 }
 
 function userControlScript(env = process.env) {
-  if (String(env.BACKUP_SUITE_CONTROL_SCRIPT || "").trim()) return path.resolve(env.BACKUP_SUITE_CONTROL_SCRIPT);
-  return path.join(homeDir(env), ".local", "share", "backup-suite", "bin", "backup-control.sh");
+  if (String(env.FILESTOW_CONTROL_SCRIPT || "").trim()) return path.resolve(env.FILESTOW_CONTROL_SCRIPT);
+  return path.join(homeDir(env), ".local", "share", "filestow", "bin", "backup-control.sh");
 }
 
 function exists(file) {
@@ -83,7 +83,7 @@ function detectMode(preference = "auto", env = process.env) {
     mode = "user";
     reason = "user installation found";
   } else {
-    reason = `Backup Suite was not found for this user, and the system broker socket (${brokerSocket(env)}) does not exist. If Backup Suite is installed on this server, recreate the socket with: sudo systemctl restart backup-suite-control.socket`;
+    reason = `FileStow was not found for this user, and the system broker socket (${brokerSocket(env)}) does not exist. If FileStow is installed on this server, recreate the socket with: sudo systemctl restart filestow-control.socket`;
   }
   return { mode, reason, both, userInstalled, systemInstalled, userConfig: userConfigFile(env), socket: brokerSocket(env), script: userControlScript(env) };
 }
@@ -182,7 +182,7 @@ function callBroker(socketPath, line, timeoutMs) {
     socket.on("error", (error) => {
       const message = error.code === "EACCES"
         ? `Permission denied on ${socketPath}. Ask an administrator to add your login with: sudo ./production-deploy.sh --gui-admin ${os.userInfo().username}`
-        : `Cannot reach the Backup Suite broker (${error.code || error.message}).`;
+        : `Cannot reach the FileStow broker (${error.code || error.message}).`;
       finish(new ControlError(error.code === "EACCES" ? "forbidden" : "unavailable", message));
     });
   });

@@ -2,7 +2,7 @@
 
 // App events for Tunnel Manager (per-consumer-v1), the browser and the bell.
 //
-// Source: Backup Suite's events file, read through the control script (events.stat
+// Source: FileStow's events file, read through the control script (events.stat
 // is cheap; events.since only runs when the file changed). Tunnel Manager consumers
 // are keyed by their installation ID; each gets a silent baseline on first contact,
 // claims only events newer than that, and acknowledges them. Events are deliverable
@@ -93,7 +93,7 @@ class EventStore {
   list({ cursor = 0, limit = 200 } = {}) {
     const after = Number(cursor) || 0;
     const events = this.events.filter((event) => event.seq > after).slice(-Math.min(500, Math.max(1, limit)));
-    return { events, next_cursor: String(this.latestSeq), generation: "backup-suite-events" };
+    return { events, next_cursor: String(this.latestSeq), generation: "filestow-events" };
   }
 
   deliverable(event) {
@@ -155,7 +155,7 @@ class EventStore {
       this.writeState();
       return {
         status: 200,
-        body: { events: [], next_cursor: String(this.latestSeq), generation: "backup-suite-events", delivery_mode: DELIVERY_MODE, consumer_id: consumerId, baseline: true }
+        body: { events: [], next_cursor: String(this.latestSeq), generation: "filestow-events", delivery_mode: DELIVERY_MODE, consumer_id: consumerId, baseline: true }
       };
     }
     const settings = this.getSettings();
@@ -178,7 +178,7 @@ class EventStore {
     this.writeState();
     return {
       status: 200,
-      body: { events: claimed, next_cursor: String(this.latestSeq), generation: "backup-suite-events", delivery_mode: DELIVERY_MODE, consumer_id: consumerId }
+      body: { events: claimed, next_cursor: String(this.latestSeq), generation: "filestow-events", delivery_mode: DELIVERY_MODE, consumer_id: consumerId }
     };
   }
 }

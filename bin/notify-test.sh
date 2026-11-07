@@ -32,9 +32,9 @@ trap 'rm -f "$detail_file"' EXIT
 message=$(cat <<EOF
 Test notification - no action needed.
 
-What happened: an administrator ran the Backup Suite notification test.
+What happened: an administrator ran the FileStow notification test.
 
-What alerts look like now: every alert starts with a plain-language description (what happened, the likely cause, what Backup Suite did to protect the server and the remote copies, and what to do). The full technical log is attached as a file.
+What alerts look like now: every alert starts with a plain-language description (what happened, the likely cause, what FileStow did to protect the server and the remote copies, and what to do). The full technical log is attached as a file.
 
 Host: $host_name | Profile: $PROFILE_NAME ($PROFILE_SUMMARY)
 Sent: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
@@ -45,5 +45,5 @@ EOF
     echo "This attachment would contain the full journal and durable-log excerpt of a real alert."
 } > "$detail_file"
 
-notify_publish "${NOTIFY_NTFY_TITLE_PREFIX:-Backup Suite}: notification test on $host_name" default "test_tube,backup" \
+notify_publish "${NOTIFY_NTFY_TITLE_PREFIX:-FileStow}: notification test on $host_name" default "test_tube,backup" \
     "$message" "$detail_file" "notification-test.txt" test

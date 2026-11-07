@@ -1,5 +1,5 @@
 #!/bin/bash
-# Notifications for Backup Suite. Source after common.sh and load_global_config.
+# Notifications for FileStow. Source after common.sh and load_global_config.
 #
 # One generic message (title, priority, description, optional detail file) goes to
 # every enabled channel: notify_publish -> channel_<name>_deliver. ntfy is the first

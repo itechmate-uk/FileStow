@@ -1,13 +1,13 @@
 # Notifications
 
-Backup Suite can publish failure notifications to an `ntfy` topic.
+FileStow can publish failure notifications to an `ntfy` topic.
 
 Recommended settings in `config/global.conf`:
 
 ```bash
 NOTIFY_FAILURES_ENABLED="1"
 NOTIFY_NTFY_TOPIC_URL="https://ntfy.sh/your-long-random-topic"
-NOTIFY_NTFY_TITLE_PREFIX="Backup Suite"
+NOTIFY_NTFY_TITLE_PREFIX="FileStow"
 NOTIFY_NTFY_PRIORITY="high"
 NOTIFY_JOURNAL_LINES="40"
 NOTIFY_DURABLE_LOG_LINES="120"
@@ -17,7 +17,7 @@ NOTIFY_FAILURE_LOG_KEEP_FILES="100"
 How it works:
 
 - a backup service exits with a real failure
-- `systemd` triggers `backup-suite-notify@.service`
+- `systemd` triggers `filestow-notify@.service`
 - the notifier reads recent `journalctl` lines for the failed unit
 - every backup/monitor run is also appended to a bounded durable log under the configured state directory (`logs/`)
 - the notifier records a timestamped local failure snapshot under the state directory (`failures/`)
@@ -27,11 +27,11 @@ How it works:
 
 ntfy turns any message body over 4096 bytes into a file attachment, which is why older alerts arrived as an attachment only. Messages are now kept under `NOTIFY_NTFY_MESSAGE_MAX_BYTES` (default 3500) and the details travel as a separate attachment. If the server rejects attachments, the message is resent on its own.
 
-The resource watchdog and the changing-file tracker send their own explained alerts; see [RESOURCES.md](RESOURCES.md). To see the format, send a test: `sudo /opt/backup-suite/bin/notify-test.sh`.
+The resource watchdog and the changing-file tracker send their own explained alerts; see [RESOURCES.md](RESOURCES.md). To see the format, send a test: `sudo /opt/filestow/bin/notify-test.sh`.
 
 Optional settings: `NOTIFY_NTFY_TOKEN` (access token for protected topics) and `NOTIFY_NTFY_ATTACH_DETAILS="0"` (message only, no attachment).
 
-System-mode defaults retain the local history under `/var/lib/backup-suite/logs/` and `/var/lib/backup-suite/failures/`. Logs rotate at `BACKUP_SUITE_LOG_MAX_BYTES`, retain `BACKUP_SUITE_LOG_KEEP_FILES` files per process, and retain the newest `NOTIFY_FAILURE_LOG_KEEP_FILES` failure snapshots. An ntfy message includes both the recent journal and durable-log tail plus the local snapshot path.
+System-mode defaults retain the local history under `/var/lib/filestow/logs/` and `/var/lib/filestow/failures/`. Logs rotate at `FILESTOW_LOG_MAX_BYTES`, retain `FILESTOW_LOG_KEEP_FILES` files per process, and retain the newest `NOTIFY_FAILURE_LOG_KEEP_FILES` failure snapshots. An ntfy message includes both the recent journal and durable-log tail plus the local snapshot path.
 
 How you receive it on mobile or desktop:
 
@@ -53,7 +53,7 @@ Privacy note:
 After changing notification config, refresh the installed unit files:
 
 ```bash
-sudo /home/user/tools/backup-suite/setup.sh --refresh-scripts --refresh-units --yes
+sudo /home/user/tools/filestow/setup.sh --refresh-scripts --refresh-units --yes
 sudo systemctl daemon-reload
 ```
 

@@ -49,8 +49,8 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 test("HTTP API: health, guard, control, settings, connect, events and one shared status poll", async () => {
   const fixture = makeFixture();
-  fs.mkdirSync(fixture.env.BACKUP_SUITE_GUI_CONFIG_DIR, { recursive: true });
-  fs.writeFileSync(path.join(fixture.env.BACKUP_SUITE_GUI_CONFIG_DIR, "config.json"), JSON.stringify({ general: { refreshSeconds: 2 }, tunnel: { backendId: "user@137.74.7.68" } }));
+  fs.mkdirSync(fixture.env.FILESTOW_GUI_CONFIG_DIR, { recursive: true });
+  fs.writeFileSync(path.join(fixture.env.FILESTOW_GUI_CONFIG_DIR, "config.json"), JSON.stringify({ general: { refreshSeconds: 2 }, tunnel: { backendId: "user@137.74.7.68" } }));
   const { createApp } = require("../server");
   const app = createApp({ env: fixture.env });
   const server = http.createServer(app.handle);
@@ -61,7 +61,7 @@ test("HTTP API: health, guard, control, settings, connect, events and one shared
   try {
     const health = await request(port, "GET", "/api/health");
     assert.strictEqual(health.status, 200);
-    assert.strictEqual(health.json.app_id, "backup-suite-gui");
+    assert.strictEqual(health.json.app_id, "filestow-gui");
     assert.strictEqual(health.json.mode, "user");
 
     assert.strictEqual((await request(port, "GET", "/api/health", { headers: { Host: "evil.example" } })).status, 403);
@@ -97,17 +97,17 @@ test("HTTP API: health, guard, control, settings, connect, events and one shared
     const saved = await request(port, "POST", "/api/settings", { headers, body: { settings: { general: { theme: "dark", refreshSeconds: 2 }, tunnel: { listenMode: "tcp" } } } });
     assert.strictEqual(saved.json.settings.general.theme, "dark");
     assert.strictEqual(saved.json.restart_required, true);
-    const stored = JSON.parse(fs.readFileSync(path.join(fixture.env.BACKUP_SUITE_GUI_CONFIG_DIR, "config.json"), "utf8"));
+    const stored = JSON.parse(fs.readFileSync(path.join(fixture.env.FILESTOW_GUI_CONFIG_DIR, "config.json"), "utf8"));
     assert.strictEqual(stored.general.theme, "dark");
-    assert.strictEqual(fs.statSync(path.join(fixture.env.BACKUP_SUITE_GUI_CONFIG_DIR, "config.json")).mode & 0o777, 0o600);
+    assert.strictEqual(fs.statSync(path.join(fixture.env.FILESTOW_GUI_CONFIG_DIR, "config.json")).mode & 0o777, 0o600);
 
     const connect = await request(port, "GET", "/api/connect");
     assert.strictEqual(connect.json.backend_id, "user@137.74.7.68");
     const badBackend = await request(port, "POST", "/api/connect/backend", { headers, body: { backend_id: "not valid" } });
     assert.strictEqual(badBackend.status, 400);
     const toml = await request(port, "GET", "/api/connect/file?kind=toml");
-    assert.match(toml.headers["content-disposition"], /backup-suite-gui-tunnel-manager\.toml/);
-    assert.match(toml.text, /expect_app_id = "backup-suite-gui"/);
+    assert.match(toml.headers["content-disposition"], /filestow-gui-tunnel-manager\.toml/);
+    assert.match(toml.text, /expect_app_id = "filestow-gui"/);
 
     // Tunnel Manager: no CSRF token, no Origin.
     const baseline = await request(port, "POST", "/api/events", { headers: { "Content-Type": "application/json" }, body: { action: "consume", consumer_id: "tm-install-1", delivery_mode: "per-consumer-v1" } });
@@ -145,11 +145,11 @@ test("HTTP API: health, guard, control, settings, connect, events and one shared
   }
 });
 
-test("the GUI never reads Backup Suite files directly (all access goes through the control client)", () => {
+test("the GUI never reads FileStow files directly (all access goes through the control client)", () => {
   const sources = ["server.js", ...fs.readdirSync(path.join(__dirname, "..", "lib")).map((name) => path.join("lib", name))];
   for (const file of sources) {
     const text = fs.readFileSync(path.join(__dirname, "..", file), "utf8");
-    assert.doesNotMatch(text, /\/etc\/backup-suite|\/var\/lib\/backup-suite|rclone\.conf|history\.tsv|events\.jsonl|file-sources\.conf/, file);
+    assert.doesNotMatch(text, /\/etc\/filestow|\/var\/lib\/filestow|rclone\.conf|history\.tsv|events\.jsonl|file-sources\.conf/, file);
   }
   // Mode detection only checks that global.conf exists; it never reads it.
   const client = fs.readFileSync(path.join(__dirname, "..", "lib", "control-client.js"), "utf8");
@@ -167,9 +167,9 @@ test("updates: the latest release, both versions, and this GUI's update in its o
   fs.writeFileSync(fakeRun, `#!/bin/bash\nprintf '%s\\n' "$*" >> "${runLog}"\n`, { mode: 0o755 });
   const env = {
     ...fixture.env,
-    BACKUP_SUITE_UPDATE_LATEST_URL: `file://${release}/latest.json`,
-    BACKUP_SUITE_UPDATE_DOWNLOAD_BASE: `file://${release}/`,
-    BACKUP_SUITE_SYSTEMD_RUN: fakeRun
+    FILESTOW_UPDATE_LATEST_URL: `file://${release}/latest.json`,
+    FILESTOW_UPDATE_DOWNLOAD_BASE: `file://${release}/`,
+    FILESTOW_SYSTEMD_RUN: fakeRun
   };
   const { createApp, VERSION } = require("../server");
   const app = createApp({ env });
@@ -196,7 +196,7 @@ test("updates: the latest release, both versions, and this GUI's update in its o
     const started = await request(port, "POST", "/api/updates/apply", { headers, body: { target: "gui", version: "9.9.9" } });
     assert.strictEqual(started.status, 202, started.text);
     const logged = fs.readFileSync(runLog, "utf8");
-    assert.match(logged, /--user --unit backup-suite-gui-update --collect/);
+    assert.match(logged, /--user --unit filestow-gui-update --collect/);
     assert.match(logged, /gui-apply --version 9\.9\.9/);
   } finally {
     server.close();
@@ -213,7 +213,7 @@ test("update terminal: in its own unit with a pty; sudo asks there; typed input 
   // sudo: asks for a password on the terminal without echo, then reports instead of running.
   const fakeSudo = path.join(fixture.root, "fake-sudo");
   fs.writeFileSync(fakeSudo, `#!/bin/bash\nprintf '[sudo] password: '\nstty -echo 2>/dev/null; read -r password; stty echo 2>/dev/null\necho\n[ "$password" = "right" ] && echo "authorized \${#password}" || echo "Sorry, try again."\nprintf 'sudo %s\\n' "$*" >> "${log}"\n`, { mode: 0o755 });
-  const env = { ...fixture.env, BACKUP_SUITE_SYSTEMD_RUN: fakeRun, BACKUP_SUITE_GUI_SUDO: fakeSudo, BACKUP_SUITE_UPDATE_FOLLOW_WAIT: "1" };
+  const env = { ...fixture.env, FILESTOW_SYSTEMD_RUN: fakeRun, FILESTOW_GUI_SUDO: fakeSudo, FILESTOW_UPDATE_FOLLOW_WAIT: "1" };
   const { createApp } = require("../server");
   const app = createApp({ env });
   const server = http.createServer(app.handle);
@@ -246,8 +246,8 @@ test("update terminal: in its own unit with a pty; sudo asks there; typed input 
     assert.strictEqual(userRun.task.done, true);
     assert.match(userRun.output, /did not start/);
     let calls = fs.readFileSync(log, "utf8");
-    assert.match(calls, /systemd-run --user --pty --quiet --wait --collect --unit backup-suite-gui-terminal/);
-    assert.match(calls, /systemd-run --user --unit backup-suite-update --collect --quiet .* apply --version 9\.9\.9/);
+    assert.match(calls, /systemd-run --user --pty --quiet --wait --collect --unit filestow-gui-terminal/);
+    assert.match(calls, /systemd-run --user --unit filestow-update --collect --quiet .* apply --version 9\.9\.9/);
     assert.doesNotMatch(calls, /^sudo /m);
 
     assert.match(app.updates.terminalBackendCommand("9.9.9", "system", true), /apply --version 9\.9\.9 --stop-running;/);
@@ -266,7 +266,7 @@ test("update terminal: in its own unit with a pty; sudo asks there; typed input 
     assert.match(output, /authorized 5/);
     assert.doesNotMatch(output, /right/, "the typed password must not be echoed");
     calls = fs.readFileSync(log, "utf8");
-    assert.match(calls, /^sudo -- sh -c set -e; install -m 755 .*backup-suite-update\.py'? \/run\/backup-suite-update\.py; .*--unit backup-suite-update .* apply --version 9\.9\.9; .*follow --version 9\.9\.9/m);
+    assert.match(calls, /^sudo -- sh -c set -e; install -m 755 .*filestow-update\.py'? \/run\/filestow-update\.py; .*--unit filestow-update .* apply --version 9\.9\.9; .*follow --version 9\.9\.9/m);
   } finally {
     server.close();
   }

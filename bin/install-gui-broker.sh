@@ -1,5 +1,5 @@
 #!/bin/bash
-# Installs the system-mode control broker for the Backup Suite GUI: the admin
+# Installs the system-mode control broker for the FileStow GUI: the admin
 # group, its members, and the socket-activated units. Run as root by setup.sh
 # (system mode) and production-deploy.sh.
 
@@ -12,12 +12,12 @@ Usage: install-gui-broker.sh --templates DIR --install-dir DIR --config-dir DIR
                              [--admin LOGIN]... [--no-start] [--check]
        install-gui-broker.sh --refresh-acl [--group NAME]
 
-Creates group backup-suite-gui (or --group), adds each --admin (default: the
-user who ran sudo, SUDO_USER), renders backup-suite-control.socket and
-backup-suite-control@.service, and enables the socket.
+Creates group filestow-gui (or --group), adds each --admin (default: the
+user who ran sudo, SUDO_USER), renders filestow-control.socket and
+filestow-control@.service, and enables the socket.
 
 Members of the group can use the GUI's control verbs as root. Name only the
-logins that administer Backup Suite.
+logins that administer FileStow.
 
 --check only verifies an existing installation and prints the members.
 
@@ -38,12 +38,12 @@ install_dir=""
 config_dir=""
 state_dir=""
 unit_dir="/etc/systemd/system"
-group_name="backup-suite-gui"
+group_name="filestow-gui"
 admins=()
 start_socket=1
 check_only=0
 refresh_acl=0
-socket_path="/run/backup-suite/control.sock"
+socket_path="/run/filestow/control.sock"
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -96,12 +96,12 @@ fi
 
 if [ "$check_only" -eq 1 ]; then
     getent group "$group_name" >/dev/null || die "Group $group_name does not exist."
-    systemctl is-active --quiet backup-suite-control.socket || die "backup-suite-control.socket is not active."
-    [ -S /run/backup-suite/control.sock ] || die "/run/backup-suite/control.sock is missing."
-    socket_owner=$(stat -c '%U:%G %a' /run/backup-suite/control.sock)
+    systemctl is-active --quiet filestow-control.socket || die "filestow-control.socket is not active."
+    [ -S /run/filestow/control.sock ] || die "/run/filestow/control.sock is missing."
+    socket_owner=$(stat -c '%U:%G %a' /run/filestow/control.sock)
     [ "$socket_owner" = "root:$group_name 660" ] || die "control.sock is $socket_owner; expected root:$group_name 660."
     while IFS= read -r member; do
-        getfacl -p "$socket_path" 2>/dev/null | grep -Fxq "user:${member}:rw-" || die "$member is in $group_name but has no ACL entry on $socket_path; run: systemctl restart backup-suite-control.socket"
+        getfacl -p "$socket_path" 2>/dev/null | grep -Fxq "user:${member}:rw-" || die "$member is in $group_name but has no ACL entry on $socket_path; run: systemctl restart filestow-control.socket"
     done < <(group_members)
     print_members
     exit 0
@@ -154,13 +154,13 @@ render() {
     rm -f "$rendered_file"
 }
 
-render "$template_dir/backup-suite-control.socket.template" "$unit_dir/backup-suite-control.socket"
-render "$template_dir/backup-suite-control@.service.template" "$unit_dir/backup-suite-control@.service"
+render "$template_dir/filestow-control.socket.template" "$unit_dir/filestow-control.socket"
+render "$template_dir/filestow-control@.service.template" "$unit_dir/filestow-control@.service"
 systemctl daemon-reload
 if [ "$start_socket" -eq 1 ]; then
-    systemctl enable backup-suite-control.socket >/dev/null
+    systemctl enable filestow-control.socket >/dev/null
     # The socket unit's ExecStartPost grants each member an ACL entry.
-    systemctl restart backup-suite-control.socket
-    printf 'backup-suite-control.socket is %s on /run/backup-suite/control.sock\n' "$(systemctl is-active backup-suite-control.socket)"
+    systemctl restart filestow-control.socket
+    printf 'filestow-control.socket is %s on /run/filestow/control.sock\n' "$(systemctl is-active filestow-control.socket)"
 fi
 print_members

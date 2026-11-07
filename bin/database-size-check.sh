@@ -10,7 +10,7 @@ parse_standard_runtime_args "$@"
 setup_journal_logging "backup-db-monitor"
 load_global_config
 setup_durable_logging "backup-db-monitor"
-acquire_backup_lock "backup-suite" "backup-suite"
+acquire_backup_lock "filestow" "filestow"
 
 require_command mysql
 require_file "$DATABASE_BACKUP_CONFIG_PATH"
@@ -55,14 +55,14 @@ while IFS='|' read -r enabled site_label database_name mysql_profile; do
     checked_count=$((checked_count + 1))
 
     size_bytes=$(mysql --defaults-extra-file="$profile_file" --batch --skip-column-names \
-        -e "SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = '${database_name//\'/\'\'}';" 2>/tmp/backup-suite-db-monitor.err) || {
+        -e "SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = '${database_name//\'/\'\'}';" 2>/tmp/filestow-db-monitor.err) || {
         error_count=$((error_count + 1))
         echo "ERROR: failed to query database size for '$database_name'"
-        cat /tmp/backup-suite-db-monitor.err
-        rm -f /tmp/backup-suite-db-monitor.err
+        cat /tmp/filestow-db-monitor.err
+        rm -f /tmp/filestow-db-monitor.err
         continue
     }
-    rm -f /tmp/backup-suite-db-monitor.err
+    rm -f /tmp/filestow-db-monitor.err
 
     if [ "$size_bytes" = "0" ]; then
         exists=$(mysql --defaults-extra-file="$profile_file" --batch --skip-column-names \

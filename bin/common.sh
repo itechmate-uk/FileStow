@@ -4,19 +4,19 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 INSTALL_DIR=$(cd -- "$SCRIPT_DIR/.." && pwd)
-if [ -z "${BACKUP_SUITE_CONFIG_DIR:-}" ]; then
+if [ -z "${FILESTOW_CONFIG_DIR:-}" ]; then
     if [ "$(id -u)" -eq 0 ]; then
-        BACKUP_SUITE_CONFIG_DIR="/etc/backup-suite"
+        FILESTOW_CONFIG_DIR="/etc/filestow"
     else
-        BACKUP_SUITE_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/backup-suite"
+        FILESTOW_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/filestow"
     fi
 fi
-GLOBAL_CONFIG_FILE="$BACKUP_SUITE_CONFIG_DIR/global.conf"
+GLOBAL_CONFIG_FILE="$FILESTOW_CONFIG_DIR/global.conf"
 
-BACKUP_SUITE_LOG_MODE="${BACKUP_SUITE_LOG_MODE:-journal}"
-BACKUP_SUITE_RCLONE_VERBOSE="${BACKUP_SUITE_RCLONE_VERBOSE:-0}"
-BACKUP_SUITE_LINK_MIGRATION_REPORT="${BACKUP_SUITE_LINK_MIGRATION_REPORT:-0}"
-BACKUP_SUITE_CONFIRM_LINK_MIGRATION="${BACKUP_SUITE_CONFIRM_LINK_MIGRATION:-0}"
+FILESTOW_LOG_MODE="${FILESTOW_LOG_MODE:-journal}"
+FILESTOW_RCLONE_VERBOSE="${FILESTOW_RCLONE_VERBOSE:-0}"
+FILESTOW_LINK_MIGRATION_REPORT="${FILESTOW_LINK_MIGRATION_REPORT:-0}"
+FILESTOW_CONFIRM_LINK_MIGRATION="${FILESTOW_CONFIRM_LINK_MIGRATION:-0}"
 
 if [ -z "${HOME:-}" ]; then
     HOME=$(getent passwd "$(id -u)" | cut -d: -f6)
@@ -68,9 +68,9 @@ require_executable_spec() {
 
 require_rclone_bin() {
     if [[ "$RCLONE_BIN" == */* ]]; then
-        [ -x "$RCLONE_BIN" ] || fail "rclone was not found via RCLONE_BIN='$RCLONE_BIN'. Install rclone first and review the Backup Suite README for user-mode installation instructions."
+        [ -x "$RCLONE_BIN" ] || fail "rclone was not found via RCLONE_BIN='$RCLONE_BIN'. Install rclone first and review the FileStow README for user-mode installation instructions."
     else
-        command -v "$RCLONE_BIN" >/dev/null 2>&1 || fail "rclone was not found via RCLONE_BIN='$RCLONE_BIN'. Install rclone first and review the Backup Suite README for user-mode installation instructions."
+        command -v "$RCLONE_BIN" >/dev/null 2>&1 || fail "rclone was not found via RCLONE_BIN='$RCLONE_BIN'. Install rclone first and review the FileStow README for user-mode installation instructions."
     fi
 }
 
@@ -86,8 +86,8 @@ acquire_backup_lock() {
     mkdir -p "$lock_dir"
     lock_file=$(join_path "$lock_dir" "${lock_name}.lock")
 
-    exec {BACKUP_SUITE_LOCK_FD}>"$lock_file"
-    if ! flock -n "$BACKUP_SUITE_LOCK_FD"; then
+    exec {FILESTOW_LOCK_FD}>"$lock_file"
+    if ! flock -n "$FILESTOW_LOCK_FD"; then
         echo "Another ${display_name} run is already in progress. Exiting."
         exit 0
     fi
@@ -119,26 +119,26 @@ parse_standard_runtime_args() {
     while [ "$#" -gt 0 ]; do
         case "$1" in
             --verbose)
-                BACKUP_SUITE_LOG_MODE="tee"
-                BACKUP_SUITE_RCLONE_VERBOSE=1
+                FILESTOW_LOG_MODE="tee"
+                FILESTOW_RCLONE_VERBOSE=1
                 ;;
             --journal-only)
-                BACKUP_SUITE_LOG_MODE="journal"
-                BACKUP_SUITE_RCLONE_VERBOSE=0
+                FILESTOW_LOG_MODE="journal"
+                FILESTOW_RCLONE_VERBOSE=0
                 ;;
             --link-migration-report)
-                if [ "${BACKUP_SUITE_RUNTIME_SCOPE:-}" != "file-backup" ]; then
+                if [ "${FILESTOW_RUNTIME_SCOPE:-}" != "file-backup" ]; then
                     echo "Unknown option: $1" >&2
                     exit 1
                 fi
-                BACKUP_SUITE_LINK_MIGRATION_REPORT=1
+                FILESTOW_LINK_MIGRATION_REPORT=1
                 ;;
             --confirm-link-migration)
-                if [ "${BACKUP_SUITE_RUNTIME_SCOPE:-}" != "file-backup" ]; then
+                if [ "${FILESTOW_RUNTIME_SCOPE:-}" != "file-backup" ]; then
                     echo "Unknown option: $1" >&2
                     exit 1
                 fi
-                BACKUP_SUITE_CONFIRM_LINK_MIGRATION=1
+                FILESTOW_CONFIRM_LINK_MIGRATION=1
                 ;;
             -h|--help)
                 cat <<'EOF'
@@ -147,7 +147,7 @@ Supported runtime options:
   --journal-only  force journal-only logging
   -h, --help      show this help
 EOF
-                if [ "${BACKUP_SUITE_RUNTIME_SCOPE:-}" = "file-backup" ]; then
+                if [ "${FILESTOW_RUNTIME_SCOPE:-}" = "file-backup" ]; then
                     cat <<'EOF'
   --link-migration-report   write dry-run reports and make no remote changes
   --confirm-link-migration  apply a previously reported --links migration
@@ -192,7 +192,7 @@ run_with_heartbeat() {
 
 setup_journal_logging() {
     local identifier="$1"
-    case "${BACKUP_SUITE_LOG_MODE:-journal}" in
+    case "${FILESTOW_LOG_MODE:-journal}" in
         journal)
             if command -v systemd-cat >/dev/null 2>&1; then
                 exec > >(/usr/bin/systemd-cat --identifier="$identifier") 2>&1
@@ -206,7 +206,7 @@ setup_journal_logging() {
         console)
             ;;
         *)
-            fail "Unsupported BACKUP_SUITE_LOG_MODE: ${BACKUP_SUITE_LOG_MODE}"
+            fail "Unsupported FILESTOW_LOG_MODE: ${FILESTOW_LOG_MODE}"
             ;;
     esac
 }
@@ -215,15 +215,15 @@ setup_durable_logging() {
     local identifier="$1"
     local log_dir
     local log_file
-    local max_bytes="${BACKUP_SUITE_LOG_MAX_BYTES:-10485760}"
-    local keep_files="${BACKUP_SUITE_LOG_KEEP_FILES:-10}"
+    local max_bytes="${FILESTOW_LOG_MAX_BYTES:-10485760}"
+    local keep_files="${FILESTOW_LOG_KEEP_FILES:-10}"
     local current_bytes=0
     local rotation_count
     local index
 
-    [[ "$max_bytes" =~ ^[0-9]+$ ]] || fail "BACKUP_SUITE_LOG_MAX_BYTES must be a non-negative integer"
-    [[ "$keep_files" =~ ^[0-9]+$ ]] || fail "BACKUP_SUITE_LOG_KEEP_FILES must be a positive integer"
-    [ "$keep_files" -gt 0 ] || fail "BACKUP_SUITE_LOG_KEEP_FILES must be greater than zero"
+    [[ "$max_bytes" =~ ^[0-9]+$ ]] || fail "FILESTOW_LOG_MAX_BYTES must be a non-negative integer"
+    [[ "$keep_files" =~ ^[0-9]+$ ]] || fail "FILESTOW_LOG_KEEP_FILES must be a positive integer"
+    [ "$keep_files" -gt 0 ] || fail "FILESTOW_LOG_KEEP_FILES must be greater than zero"
 
     log_dir=$(join_path "$STATE_DIR" "logs")
     log_file=$(join_path "$log_dir" "${identifier}.log")
@@ -291,11 +291,11 @@ resolve_effective_config() {
     esac
 
     if [ "$EFFECTIVE_INSTALL_MODE" = "system" ]; then
-        INSTALL_DIR="${SYSTEM_INSTALL_DIR:-${INSTALL_DIR:-/opt/backup-suite}}"
-        CONFIG_DIR="${SYSTEM_CONFIG_DIR:-${CONFIG_DIR:-/etc/backup-suite}}"
-        STATE_DIR="${SYSTEM_STATE_DIR:-${STATE_DIR:-/var/lib/backup-suite}}"
-        DB_LOCAL_OUTPUT_DIR="${SYSTEM_DB_LOCAL_OUTPUT_DIR:-${DB_LOCAL_OUTPUT_DIR:-/var/backups/backup-suite/databases}}"
-        RCLONE_CONFIG_PATH="${SYSTEM_RCLONE_CONFIG_PATH:-${RCLONE_CONFIG_PATH:-/etc/backup-suite/rclone.conf}}"
+        INSTALL_DIR="${SYSTEM_INSTALL_DIR:-${INSTALL_DIR:-/opt/filestow}}"
+        CONFIG_DIR="${SYSTEM_CONFIG_DIR:-${CONFIG_DIR:-/etc/filestow}}"
+        STATE_DIR="${SYSTEM_STATE_DIR:-${STATE_DIR:-/var/lib/filestow}}"
+        DB_LOCAL_OUTPUT_DIR="${SYSTEM_DB_LOCAL_OUTPUT_DIR:-${DB_LOCAL_OUTPUT_DIR:-/var/backups/filestow/databases}}"
+        RCLONE_CONFIG_PATH="${SYSTEM_RCLONE_CONFIG_PATH:-${RCLONE_CONFIG_PATH:-/etc/filestow/rclone.conf}}"
         RCLONE_BIN="${SYSTEM_RCLONE_BIN:-${RCLONE_BIN:-rclone}}"
         FILE_SOURCE_CONFIG_PATH="${SYSTEM_FILE_SOURCE_CONFIG_PATH:-${FILE_SOURCE_CONFIG_PATH:-$CONFIG_DIR/file-sources.conf}}"
         DATABASE_BACKUP_CONFIG_PATH="${SYSTEM_DATABASE_BACKUP_CONFIG_PATH:-${DATABASE_BACKUP_CONFIG_PATH:-$CONFIG_DIR/database-backups.conf}}"
@@ -303,12 +303,12 @@ resolve_effective_config() {
         SYSTEMD_UNIT_DIR="${SYSTEM_SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
         SYSTEMCTL_COMMAND=(systemctl)
         SYSTEMD_SCOPE="system"
-        SYSTEM_CANONICAL_SOURCE_DIR="${SYSTEM_CANONICAL_SOURCE_DIR:-/opt/backup-suite-src}"
+        SYSTEM_CANONICAL_SOURCE_DIR="${SYSTEM_CANONICAL_SOURCE_DIR:-/opt/filestow-src}"
     else
-        INSTALL_DIR="${USER_INSTALL_DIR:-$HOME/.local/share/backup-suite}"
-        CONFIG_DIR="${USER_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/backup-suite}"
-        STATE_DIR="${USER_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/backup-suite}"
-        DB_LOCAL_OUTPUT_DIR="${USER_DB_LOCAL_OUTPUT_DIR:-$HOME/backups/backup-suite/databases}"
+        INSTALL_DIR="${USER_INSTALL_DIR:-$HOME/.local/share/filestow}"
+        CONFIG_DIR="${USER_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/filestow}"
+        STATE_DIR="${USER_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/filestow}"
+        DB_LOCAL_OUTPUT_DIR="${USER_DB_LOCAL_OUTPUT_DIR:-$HOME/backups/filestow/databases}"
         RCLONE_CONFIG_PATH="${USER_RCLONE_CONFIG_PATH:-${XDG_CONFIG_HOME:-$HOME/.config}/rclone/rclone.conf}"
         RCLONE_BIN="${USER_RCLONE_BIN:-${RCLONE_BIN:-rclone}}"
         FILE_SOURCE_CONFIG_PATH="${USER_FILE_SOURCE_CONFIG_PATH:-$CONFIG_DIR/file-sources.conf}"
@@ -503,12 +503,12 @@ resolve_file_backup_profile() {
 FILE_PROFILE_OVERRIDE_KEYS=(CPU_QUOTA CPU_WEIGHT IO_WEIGHT NICE IO_SCHEDULING_CLASS MEMORY_HIGH MEMORY_MAX MEMORY_SWAP_MAX TASKS_MAX RCLONE_TRANSFERS RCLONE_CHECKERS RCLONE_BUFFER_SIZE RCLONE_TPSLIMIT RCLONE_BWLIMIT)
 
 host_memory_bytes() {
-    awk '/^MemTotal:/ { printf "%d", $2 * 1024 }' "${BACKUP_SUITE_PROC_DIR:-/proc}/meminfo" 2>/dev/null || true
+    awk '/^MemTotal:/ { printf "%d", $2 * 1024 }' "${FILESTOW_PROC_DIR:-/proc}/meminfo" 2>/dev/null || true
 }
 
 host_cpu_cores() {
-    if [ -n "${BACKUP_SUITE_CPU_COUNT:-}" ]; then
-        printf '%s' "$BACKUP_SUITE_CPU_COUNT"
+    if [ -n "${FILESTOW_CPU_COUNT:-}" ]; then
+        printf '%s' "$FILESTOW_CPU_COUNT"
     else
         nproc 2>/dev/null || printf '1'
     fi
@@ -642,7 +642,7 @@ current_adaptive_profile() {
 render_file_backup_profile_dropin() {
     # Prints the systemd drop-in that applies the resolved profile limits.
     cat <<DROPIN
-# Generated by Backup Suite (backup-profile.sh) for profile: $PROFILE_NAME
+# Generated by FileStow (backup-profile.sh) for profile: $PROFILE_NAME
 # $PROFILE_SUMMARY
 # Change it with: backup-profile.sh set slow|moderate|fast
 [Service]

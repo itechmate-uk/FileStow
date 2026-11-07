@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Backup Suite GUI</title>
-  <meta name="description" content="Backup Suite status, resource use and controls through an SSH tunnel.">
+  <title>FileStow GUI</title>
+  <meta name="description" content="FileStow status, resource use and controls through an SSH tunnel.">
   <meta name="theme-color" content="#1a6b5b">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
@@ -23,11 +23,11 @@
     <div class="topbar-commandbar" id="topbar-commandbar">
       <button id="reload-button" class="icon-button" type="button" title="Reload the GUI" aria-label="Reload the GUI">&#10227;</button>
       <button id="settings-button" class="icon-button" type="button" title="Settings" aria-label="Settings">&#9881;</button>
-      <button id="admin-button" type="button" title="Backup Suite administration: actions, schedule, profiles, watchdog, ntfy, server settings, runs, logs and audit">Admin</button>
-      <button id="update-button" type="button" class="update-button" title="Updates for Backup Suite and this GUI">Update check</button>
+      <button id="admin-button" type="button" title="FileStow administration: actions, schedule, profiles, watchdog, ntfy, server settings, runs, logs and audit">Admin</button>
+      <button id="update-button" type="button" class="update-button" title="Updates for FileStow and this GUI">Update check</button>
       <button id="connect-button" class="icon-button" type="button" title="Ways to connect to this GUI" aria-label="Ways to connect to this GUI">&#8681;</button>
       <button id="reset-panels-button" type="button" title="Reset panels to the default arrangement">Reset Panels</button>
-      <div class="runtime-label" title="Backup Suite install mode this GUI manages">
+      <div class="runtime-label" title="FileStow install mode this GUI manages">
         <span class="eyebrow">Runtime</span>
         <strong id="mode-label">checking…</strong>
       </div>
@@ -39,7 +39,7 @@
       </button>
     </div>
     <div class="topbar-brand">
-      <strong>Backup-Suite-Gui</strong>
+      <strong>FileStow GUI</strong>
       <span id="version-label" class="version-label"></span>
     </div>
   </header>
@@ -145,7 +145,7 @@
     <form method="dialog" id="settings-form" novalidate>
       <div class="dialog-header">
         <div>
-          <p class="eyebrow">This GUI only (Backup Suite's own settings are under Admin)</p>
+          <p class="eyebrow">This GUI only (FileStow's own settings are under Admin)</p>
           <h2 id="settings-title">GUI settings</h2>
         </div>
         <button class="icon-button small" type="submit" value="cancel" formnovalidate aria-label="Close settings">&#10005;</button>
@@ -181,7 +181,7 @@
           </label>
         </fieldset>
         <fieldset class="settings-option-group">
-          <legend>Backup Suite installation</legend>
+          <legend>FileStow installation</legend>
           <label>Backend
             <select name="general.backend">
               <option value="auto">Automatic</option>
@@ -204,7 +204,7 @@
           <label class="inline-check"><input name="notifications.tunnelManager" type="checkbox"><span>Tunnel Manager delivery</span></label>
           <label class="inline-check"><input name="notifications.browser" type="checkbox"><span>Browser notification delivery</span></label>
           <label class="inline-check"><input name="notifications.preferTunnelManager" type="checkbox"><span>Prefer Tunnel Manager notifications when active</span></label>
-          <p class="settings-help">Tunnel Manager shows warnings and errors as desktop notices. The bell lists the notifications Backup Suite sends to ntfy, and every other event under All activity. ntfy itself is set up under Admin → Notifications (ntfy).</p>
+          <p class="settings-help">Tunnel Manager shows warnings and errors as desktop notices. The bell lists the notifications FileStow sends to ntfy, and every other event under All activity. ntfy itself is set up under Admin → Notifications (ntfy).</p>
           <div class="settings-notification-categories" id="settings-categories" aria-label="Notification categories"></div>
           <div class="toolbar-row tight">
             <button id="browser-notification-button" type="button">Enable browser notifications</button>
@@ -249,7 +249,7 @@
       <section class="settings-tab-panel" data-settings-tab="resources" role="tabpanel" hidden>
         <fieldset class="settings-option-group">
           <legend>GUI unit and watchdog</legend>
-          <p class="settings-help">Limits for the GUI itself (not the backup). They take effect after the GUI restarts: run <code>backup-suite-gui-server install</code> again or use Restart GUI.</p>
+          <p class="settings-help">Limits for the GUI itself (not the backup). They take effect after the GUI restarts: run <code>filestow-gui-server install</code> again or use Restart GUI.</p>
           <label>Memory soft limit (MB)
             <input name="limits.memoryHighMb" type="number" min="48" max="1024" step="1">
           </label>
@@ -291,7 +291,7 @@
   <dialog id="update-dialog" class="dialog update-dialog" aria-labelledby="update-title">
     <div class="dialog-header">
       <div>
-        <p class="eyebrow">Backup Suite and this GUI</p>
+        <p class="eyebrow">FileStow and this GUI</p>
         <h2 id="update-title">Updates</h2>
       </div>
       <div class="titlebar-actions">
@@ -319,7 +319,7 @@
   <dialog id="admin-dialog" class="dialog admin-dialog" aria-labelledby="admin-title">
     <div class="dialog-header">
       <div>
-        <p class="eyebrow">Backup Suite on this server · not specific to one job</p>
+        <p class="eyebrow">FileStow on this server · not specific to one job</p>
         <h2 id="admin-title">Admin</h2>
       </div>
       <div class="titlebar-actions">

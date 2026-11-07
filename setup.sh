@@ -33,7 +33,7 @@ usage() {
 Usage: setup.sh [--dry-run] [--refresh-scripts] [--refresh-config] [--refresh-units] [--yes]
                 [--gui-admin LOGIN]...
 
-This script installs Backup Suite in user mode or system mode, depending on how it is run.
+This script installs FileStow in user mode or system mode, depending on how it is run.
 It deploys the runtime scripts, symlinks runtime config back to the canonical source tree,
 and installs matching systemd units.
 
@@ -132,7 +132,7 @@ choose_install_mode() {
     fi
 
     cat <<'EOF'
-Root privileges were detected, so Backup Suite can be installed system-wide.
+Root privileges were detected, so FileStow can be installed system-wide.
 
 This applies whether you ran the script with sudo or you are logged in directly as root.
 
@@ -373,7 +373,7 @@ if [ "$EFFECTIVE_INSTALL_MODE" = "system" ]; then
     CANONICAL_SOURCE_DIR="$SYSTEM_CANONICAL_SOURCE_DIR"
 fi
 
-echo "Installing Backup Suite into $INSTALL_DIR"
+echo "Installing FileStow into $INSTALL_DIR"
 echo "Configuration directory: $CONFIG_DIR"
 echo "Effective install mode: $EFFECTIVE_INSTALL_MODE"
 echo "Canonical source directory: $CANONICAL_SOURCE_DIR"
@@ -423,7 +423,7 @@ deploy_symlink "$DEPLOYED_CONFIG_SOURCE_DIR/mysql-profiles" "$CONFIG_DIR/mysql-p
 if [ "$EFFECTIVE_INSTALL_MODE" = "system" ]; then
     append_if_missing "$DEPLOYED_CONFIG_SOURCE_DIR/file-sources.conf" "$SYSTEM_CANONICAL_SOURCE_DIR" "
 # System-mode canonical source tree; enable and choose destination when you want to back it up.
-0|backup-suite-system-source|$SYSTEM_CANONICAL_SOURCE_DIR|fixed|tools/backup-suite-src|.nosync
+0|filestow-system-source|$SYSTEM_CANONICAL_SOURCE_DIR|fixed|tools/filestow-src|.nosync
 "
 fi
 
@@ -448,13 +448,13 @@ if is_enabled_value_local "${INSTALL_SYSTEMD_UNITS:-1}"; then
     run_cmd install -d -m 755 "$SYSTEMD_UNIT_DIR"
 
     file_lock="$STATE_DIR/locks/file-backup.service.lock"
-    db_lock="%t/backup-suite-database-backup.lock"
-    monitor_lock="%t/backup-suite-database-monitor.lock"
+    db_lock="%t/filestow-database-backup.lock"
+    monitor_lock="%t/filestow-database-monitor.lock"
 
     if [ "$EFFECTIVE_INSTALL_MODE" = "system" ]; then
         file_lock="$STATE_DIR/locks/file-backup.service.lock"
-        db_lock="/run/backup-suite/database-backup.lock"
-        monitor_lock="/run/backup-suite/database-monitor.lock"
+        db_lock="/run/filestow/database-backup.lock"
+        monitor_lock="/run/filestow/database-monitor.lock"
     fi
 
     render_unit "$READ_SOURCE_DIR/systemd/file-backup.service.template" "$SYSTEMD_UNIT_DIR/file-backup.service" "$file_lock"
@@ -463,15 +463,15 @@ if is_enabled_value_local "${INSTALL_SYSTEMD_UNITS:-1}"; then
     render_unit "$READ_SOURCE_DIR/systemd/database-backup.timer.template" "$SYSTEMD_UNIT_DIR/database-backup.timer" "$db_lock"
     render_unit "$READ_SOURCE_DIR/systemd/database-size-check.service.template" "$SYSTEMD_UNIT_DIR/database-size-check.service" "$monitor_lock"
     render_unit "$READ_SOURCE_DIR/systemd/database-size-check.timer.template" "$SYSTEMD_UNIT_DIR/database-size-check.timer" "$monitor_lock"
-    render_unit "$READ_SOURCE_DIR/systemd/backup-suite-notify@.service.template" "$SYSTEMD_UNIT_DIR/backup-suite-notify@.service" ""
-    render_unit "$READ_SOURCE_DIR/systemd/backup-suite-watchdog@.service.template" "$SYSTEMD_UNIT_DIR/backup-suite-watchdog@.service" ""
+    render_unit "$READ_SOURCE_DIR/systemd/filestow-notify@.service.template" "$SYSTEMD_UNIT_DIR/filestow-notify@.service" ""
+    render_unit "$READ_SOURCE_DIR/systemd/filestow-watchdog@.service.template" "$SYSTEMD_UNIT_DIR/filestow-watchdog@.service" ""
 
-    run_cmd chmod 644 "$SYSTEMD_UNIT_DIR/file-backup.service" "$SYSTEMD_UNIT_DIR/file-backup.timer" "$SYSTEMD_UNIT_DIR/database-backup.service" "$SYSTEMD_UNIT_DIR/database-backup.timer" "$SYSTEMD_UNIT_DIR/database-size-check.service" "$SYSTEMD_UNIT_DIR/database-size-check.timer" "$SYSTEMD_UNIT_DIR/backup-suite-notify@.service" "$SYSTEMD_UNIT_DIR/backup-suite-watchdog@.service"
+    run_cmd chmod 644 "$SYSTEMD_UNIT_DIR/file-backup.service" "$SYSTEMD_UNIT_DIR/file-backup.timer" "$SYSTEMD_UNIT_DIR/database-backup.service" "$SYSTEMD_UNIT_DIR/database-backup.timer" "$SYSTEMD_UNIT_DIR/database-size-check.service" "$SYSTEMD_UNIT_DIR/database-size-check.timer" "$SYSTEMD_UNIT_DIR/filestow-notify@.service" "$SYSTEMD_UNIT_DIR/filestow-watchdog@.service"
     # The timers follow global.conf's schedule (the GUI changes it the same way).
-    run_cmd env BACKUP_SUITE_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/apply-schedule.sh" --no-reload
+    run_cmd env FILESTOW_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/apply-schedule.sh" --no-reload
     run_cmd "${SYSTEMCTL_COMMAND[@]}" daemon-reload
     # Writes the file-backup resource-profile drop-in and reloads systemd.
-    run_cmd env BACKUP_SUITE_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-profile.sh" apply
+    run_cmd env FILESTOW_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-profile.sh" apply
 
     if [ "$EFFECTIVE_INSTALL_MODE" = "system" ]; then
         gui_admin_args=()
@@ -490,6 +490,6 @@ if is_enabled_value_local "${INSTALL_SYSTEMD_UNITS:-1}"; then
     fi
 fi
 
-echo "Backup Suite setup completed."
+echo "FileStow setup completed."
 echo "Choose how much of the server file backups may use: $INSTALL_DIR/bin/backup-profile.sh choose"
 echo "Review the canonical source under $CANONICAL_SOURCE_DIR and runtime config links under $CONFIG_DIR before enabling timers on a live system."

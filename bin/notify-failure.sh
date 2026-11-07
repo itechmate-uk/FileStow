@@ -31,7 +31,7 @@ fi
 journal_lines="${NOTIFY_JOURNAL_LINES:-40}"
 durable_log_lines="${NOTIFY_DURABLE_LOG_LINES:-120}"
 failure_log_keep_files="${NOTIFY_FAILURE_LOG_KEEP_FILES:-100}"
-title_prefix=$(trim "${NOTIFY_NTFY_TITLE_PREFIX:-Backup Suite}")
+title_prefix=$(trim "${NOTIFY_NTFY_TITLE_PREFIX:-FileStow}")
 priority=$(trim "${NOTIFY_NTFY_PRIORITY:-high}")
 
 [[ "$journal_lines" =~ ^[0-9]+$ ]] || fail "NOTIFY_JOURNAL_LINES must be a non-negative integer"
@@ -64,7 +64,7 @@ case "$unit_name" in
         durable_identifier="backup-db-monitor"
         run_start_marker=""
         ;;
-    backup-suite-watchdog@*)
+    filestow-watchdog@*)
         durable_identifier=""
         run_start_marker=""
         ;;
@@ -154,7 +154,7 @@ fi
 if log_matches 'invalid_grant|token expired|oauth2: cannot fetch token|couldn.t fetch token|error 401|unauthorized'; then
     add_explanation \
         "rclone's Google Drive login is no longer valid (expired or revoked token)." \
-        "Reconnect the remote: sudo rclone config reconnect <remote>: --config /etc/backup-suite/rclone.conf"
+        "Reconnect the remote: sudo rclone config reconnect <remote>: --config /etc/filestow/rclone.conf"
 fi
 if log_matches 'no such host|dial tcp|connection refused|connection reset|i/o timeout|tls handshake timeout|network is unreachable|context deadline exceeded'; then
     add_explanation \

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Routine production deployment for an already migrated Backup Suite host.
+# Routine production deployment for an already migrated FileStow host.
 #
 # Unlike production-file-backup-migrate.sh (a one-time --links migration), this
 # script never disables file-backup.timer. It pauses the timer only while files
@@ -11,19 +11,19 @@
 set -euo pipefail
 
 SOURCE_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-INSTALL_DIR="/opt/backup-suite"
-CANONICAL_DIR="/opt/backup-suite-src"
-CONFIG_DIR="/etc/backup-suite"
-STATE_DIR="/var/lib/backup-suite"
+INSTALL_DIR="/opt/filestow"
+CANONICAL_DIR="/opt/filestow-src"
+CONFIG_DIR="/etc/filestow"
+STATE_DIR="/var/lib/filestow"
 UNIT_DIR="/etc/systemd/system"
 GLOBAL_CONFIG="$CONFIG_DIR/global.conf"
 TIMER_UNIT="file-backup.timer"
 SERVICE_UNIT="file-backup.service"
-WATCHDOG_TEMPLATE_UNIT="backup-suite-watchdog@.service"
-WATCHDOG_INSTANCE_UNIT="backup-suite-watchdog@file-backup.service"
+WATCHDOG_TEMPLATE_UNIT="filestow-watchdog@.service"
+WATCHDOG_INSTANCE_UNIT="filestow-watchdog@file-backup.service"
 PROFILE_DROPIN_DIR="$UNIT_DIR/$SERVICE_UNIT.d"
-CONTROL_SOCKET_UNIT="backup-suite-control.socket"
-MANAGED_UNIT_FILES=(file-backup.service backup-suite-notify@.service "$WATCHDOG_TEMPLATE_UNIT" "$CONTROL_SOCKET_UNIT" backup-suite-control@.service)
+CONTROL_SOCKET_UNIT="filestow-control.socket"
+MANAGED_UNIT_FILES=(file-backup.service filestow-notify@.service "$WATCHDOG_TEMPLATE_UNIT" "$CONTROL_SOCKET_UNIT" filestow-control@.service)
 GUI_ADMINS=()
 RUN_ID=$(date -u '+%Y%m%dT%H%M%SZ')
 BACKUP_DIR=""
@@ -33,7 +33,7 @@ REQUESTED_FLOOR=""
 FIXED_REQUESTED=0
 REQUESTED_LIMITS=""
 RUNNING_BACKUP_POLICY="wait"
-WAIT_LIMIT_SECONDS="${BACKUP_SUITE_DEPLOY_WAIT_LIMIT_SECONDS:-14400}"
+WAIT_LIMIT_SECONDS="${FILESTOW_DEPLOY_WAIT_LIMIT_SECONDS:-14400}"
 SEND_TEST_NOTIFICATION=0
 TIMER_WAS_ENABLED=0
 TIMER_WAS_ACTIVE=0
@@ -45,7 +45,7 @@ usage() {
     cat <<'EOF'
 Usage: sudo ./production-deploy.sh [options]
 
-Deploys the current Backup Suite source to this host: scripts, the resource
+Deploys the current FileStow source to this host: scripts, the resource
 watchdog, the file-backup resource profile, and the ntfy notification format.
 file-backup.timer is never disabled. On failure the previous installation is
 restored and the timer restarted.
@@ -78,7 +78,7 @@ EOF
 }
 
 log() {
-    printf '[backup-suite-deploy] %s\n' "$*"
+    printf '[filestow-deploy] %s\n' "$*"
 }
 
 die() {
@@ -223,11 +223,11 @@ required_source_files=(
     "$SOURCE_DIR/bin/backup-control.sh"
     "$SOURCE_DIR/bin/backup-control.py"
     "$SOURCE_DIR/bin/install-gui-broker.sh"
-    "$SOURCE_DIR/systemd/backup-suite-control.socket.template"
-    "$SOURCE_DIR/systemd/backup-suite-control@.service.template"
+    "$SOURCE_DIR/systemd/filestow-control.socket.template"
+    "$SOURCE_DIR/systemd/filestow-control@.service.template"
     "$SOURCE_DIR/systemd/file-backup.service.template"
-    "$SOURCE_DIR/systemd/backup-suite-notify@.service.template"
-    "$SOURCE_DIR/systemd/backup-suite-watchdog@.service.template"
+    "$SOURCE_DIR/systemd/filestow-notify@.service.template"
+    "$SOURCE_DIR/systemd/filestow-watchdog@.service.template"
     "$SOURCE_DIR/tests/run.sh"
 )
 for source_file in "${required_source_files[@]}"; do
@@ -239,7 +239,7 @@ done
 if [ -d "$SOURCE_DIR/.git" ]; then
     command -v git >/dev/null 2>&1 || die "Required command not found: git"
 fi
-[[ "$WAIT_LIMIT_SECONDS" =~ ^[0-9]+$ ]] || die "BACKUP_SUITE_DEPLOY_WAIT_LIMIT_SECONDS must be an integer"
+[[ "$WAIT_LIMIT_SECONDS" =~ ^[0-9]+$ ]] || die "FILESTOW_DEPLOY_WAIT_LIMIT_SECONDS must be an integer"
 
 bash -n "$SOURCE_DIR/setup.sh" "$SOURCE_DIR/production-deploy.sh" "$SOURCE_DIR"/bin/*.sh "$SOURCE_DIR/tests/run.sh" "$SOURCE_DIR/tests/fixtures"/*.sh
 python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$SOURCE_DIR/bin/backup-control.py"
@@ -272,8 +272,8 @@ fi
 [ -f "$GLOBAL_CONFIG" ] || die "Production config is missing: $GLOBAL_CONFIG"
 [ -d "$INSTALL_DIR/bin" ] || die "No existing installation at $INSTALL_DIR; use setup.sh for a first install."
 
-exec {DEPLOY_LOCK_FD}>/run/backup-suite-production-deploy.lock
-flock -n "$DEPLOY_LOCK_FD" || die "Another Backup Suite deployment is already running."
+exec {DEPLOY_LOCK_FD}>/run/filestow-production-deploy.lock
+flock -n "$DEPLOY_LOCK_FD" || die "Another FileStow deployment is already running."
 
 if [ -z "$REQUESTED_PROFILE" ]; then
     configured_profile=$(bash -c '. "$1"; printf "%s" "${FILE_BACKUP_PROFILE:-}"' _ "$(readlink -f "$GLOBAL_CONFIG")")
@@ -283,7 +283,7 @@ if [ -z "$REQUESTED_PROFILE" ]; then
         configured_floor=""
     fi
     if [ -t 0 ] && [ -t 1 ]; then
-        BACKUP_SUITE_CONFIG_DIR="$CONFIG_DIR" "$SOURCE_DIR/bin/backup-profile.sh" show
+        FILESTOW_CONFIG_DIR="$CONFIG_DIR" "$SOURCE_DIR/bin/backup-profile.sh" show
         echo ""
         read -r -p "Profile to apply [slow/moderate/fast, Enter = ${configured_profile:-moderate}]: " REQUESTED_PROFILE
         REQUESTED_PROFILE="${REQUESTED_PROFILE,,}"
@@ -403,10 +403,10 @@ render_unit() {
     rm -f "$rendered_file"
 }
 
-log "Installing systemd units: $SERVICE_UNIT, $WATCHDOG_TEMPLATE_UNIT, backup-suite-notify@.service"
+log "Installing systemd units: $SERVICE_UNIT, $WATCHDOG_TEMPLATE_UNIT, filestow-notify@.service"
 render_unit "$SOURCE_DIR/systemd/file-backup.service.template" "$UNIT_DIR/$SERVICE_UNIT"
-render_unit "$SOURCE_DIR/systemd/backup-suite-watchdog@.service.template" "$UNIT_DIR/$WATCHDOG_TEMPLATE_UNIT"
-render_unit "$SOURCE_DIR/systemd/backup-suite-notify@.service.template" "$UNIT_DIR/backup-suite-notify@.service"
+render_unit "$SOURCE_DIR/systemd/filestow-watchdog@.service.template" "$UNIT_DIR/$WATCHDOG_TEMPLATE_UNIT"
+render_unit "$SOURCE_DIR/systemd/filestow-notify@.service.template" "$UNIT_DIR/filestow-notify@.service"
 systemd-analyze verify "$UNIT_DIR/$SERVICE_UNIT" "$UNIT_DIR/$WATCHDOG_INSTANCE_UNIT"
 
 # The database units belong to setup.sh and are not re-rendered here; only
@@ -431,7 +431,7 @@ install_swap_cap_dropin() {
 install_swap_cap_dropin database-backup.service
 install_swap_cap_dropin database-size-check.service
 
-# /run/backup-suite is shared with the GUI's control socket: a database unit
+# /run/filestow is shared with the GUI's control socket: a database unit
 # that stops must not delete it (RuntimeDirectoryPreserve, as in the template).
 install_runtime_preserve_dropin() {
     local unit_name="$1"
@@ -445,26 +445,26 @@ install_runtime_preserve_dropin() {
         "$unit_name.template" > "$dropin_dir/41-runtime-preserve.conf.tmp"
     chmod 644 "$dropin_dir/41-runtime-preserve.conf.tmp"
     mv "$dropin_dir/41-runtime-preserve.conf.tmp" "$dropin_dir/41-runtime-preserve.conf"
-    log "$unit_name keeps /run/backup-suite when it stops."
+    log "$unit_name keeps /run/filestow when it stops."
 }
 install_runtime_preserve_dropin database-backup.service
 install_runtime_preserve_dropin database-size-check.service
 # The timers follow global.conf's schedule (the GUI changes it the same way).
-BACKUP_SUITE_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/apply-schedule.sh" --no-reload
+FILESTOW_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/apply-schedule.sh" --no-reload
 systemctl daemon-reload
 
 if [ -n "$REQUESTED_LIMITS" ]; then
     log "Setting limits mode '$REQUESTED_LIMITS'."
-    BACKUP_SUITE_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-profile.sh" limits "$REQUESTED_LIMITS"
+    FILESTOW_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-profile.sh" limits "$REQUESTED_LIMITS"
 fi
 if [ -n "$REQUESTED_FLOOR" ]; then
     log "Applying adaptive profile '$REQUESTED_PROFILE' with floor '$REQUESTED_FLOOR'."
-    BACKUP_SUITE_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-profile.sh" adaptive "$REQUESTED_PROFILE" "$REQUESTED_FLOOR"
+    FILESTOW_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-profile.sh" adaptive "$REQUESTED_PROFILE" "$REQUESTED_FLOOR"
 else
     log "Applying fixed profile '$REQUESTED_PROFILE'."
-    BACKUP_SUITE_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-profile.sh" set "$REQUESTED_PROFILE"
+    FILESTOW_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-profile.sh" set "$REQUESTED_PROFILE"
 fi
-BACKUP_SUITE_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-profile.sh" show
+FILESTOW_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-profile.sh" show
 
 # Verify that systemd accepted the top profile (the unit's starting limits)
 # and the watchdog wiring, using the saved config including any overrides.
@@ -500,7 +500,7 @@ assert_service_property RuntimeDirectoryPreserve yes
 systemctl show "$SERVICE_UNIT" -p Wants --value | grep -Fq "$WATCHDOG_INSTANCE_UNIT" || die "$SERVICE_UNIT does not pull in $WATCHDOG_INSTANCE_UNIT"
 log "systemd accepted the profile limits and the watchdog wiring."
 
-BACKUP_SUITE_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-watchdog.sh" "$SERVICE_UNIT" --self-test
+FILESTOW_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-watchdog.sh" "$SERVICE_UNIT" --self-test
 
 log "Installing the GUI control broker ($CONTROL_SOCKET_UNIT)."
 gui_admin_args=()
@@ -510,7 +510,7 @@ done
 "$INSTALL_DIR/bin/install-gui-broker.sh" --templates "$SOURCE_DIR/systemd" --install-dir "$INSTALL_DIR" \
     --config-dir "$CONFIG_DIR" --state-dir "$STATE_DIR" --unit-dir "$UNIT_DIR" "${gui_admin_args[@]}"
 "$INSTALL_DIR/bin/install-gui-broker.sh" --check
-control_reply=$(printf '{"verb":"status"}\n' | BACKUP_SUITE_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-control.sh")
+control_reply=$(printf '{"verb":"status"}\n' | FILESTOW_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-control.sh")
 case "$control_reply" in
     '{"ok":true'*) ;;
     *) die "backup-control.sh status failed: ${control_reply:0:300}" ;;
@@ -519,7 +519,7 @@ socket_reply=$(python3 -I -c '
 import socket, sys
 connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 connection.settimeout(20)
-connection.connect("/run/backup-suite/control.sock")
+connection.connect("/run/filestow/control.sock")
 connection.sendall(b"{\"verb\":\"events.stat\"}\n")
 data = b""
 while not data.endswith(b"\n"):
@@ -530,7 +530,7 @@ while not data.endswith(b"\n"):
 sys.stdout.write(data.decode())
 ')
 case "$socket_reply" in
-    '{"ok":true'*) log "The control broker answers on /run/backup-suite/control.sock." ;;
+    '{"ok":true'*) log "The control broker answers on /run/filestow/control.sock." ;;
     *) die "The control broker did not answer correctly: ${socket_reply:0:300}" ;;
 esac
 
@@ -538,5 +538,5 @@ DEPLOY_SUCCEEDED=1
 log "Deployment complete. Backup copy of the previous installation: $BACKUP_DIR"
 
 if [ "$SEND_TEST_NOTIFICATION" -eq 1 ]; then
-    BACKUP_SUITE_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/notify-test.sh" || log "The test notification could not be sent; check NOTIFY_* settings." >&2
+    FILESTOW_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/notify-test.sh" || log "The test notification could not be sent; check NOTIFY_* settings." >&2
 fi

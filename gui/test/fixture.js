@@ -1,6 +1,6 @@
 "use strict";
 
-// A throwaway user-mode Backup Suite installation for the GUI tests: the real control
+// A throwaway user-mode FileStow installation for the GUI tests: the real control
 // script from this repository, a config under a temporary XDG_CONFIG_HOME, and the
 // shell test suite's fake systemctl/journalctl/curl on PATH.
 
@@ -11,9 +11,9 @@ const path = require("path");
 const REPO = path.resolve(__dirname, "..", "..");
 
 function makeFixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "backup-suite-gui-test-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "filestow-gui-test-"));
   const xdgConfig = path.join(root, "xdg-config");
-  const configDir = path.join(xdgConfig, "backup-suite");
+  const configDir = path.join(xdgConfig, "filestow");
   const stateDir = path.join(root, "state");
   const binDir = path.join(root, "bin");
   const sourceDir = path.join(root, "source");
@@ -50,10 +50,10 @@ function makeFixture() {
   fs.writeFileSync(path.join(procDir, "pressure", "memory"), "some avg10=0.00 avg60=0.00 avg300=0.00 total=0\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n");
   const env = {
     ...process.env,
-    // Pinned so the control script never falls back to /etc/backup-suite when
+    // Pinned so the control script never falls back to /etc/filestow when
     // the suite runs as root (production-deploy.sh runs it under sudo).
-    BACKUP_SUITE_CONFIG_DIR: configDir,
-    BACKUP_SUITE_PROC_DIR: procDir,
+    FILESTOW_CONFIG_DIR: configDir,
+    FILESTOW_PROC_DIR: procDir,
     HOME: path.join(root, "home"),
     XDG_CONFIG_HOME: xdgConfig,
     XDG_STATE_HOME: path.join(root, "xdg-state"),
@@ -62,12 +62,12 @@ function makeFixture() {
     FAKE_SYSTEMCTL_LOG: path.join(root, "systemctl.log"),
     FAKE_JOURNALCTL_LOG: path.join(root, "journalctl.log"),
     FAKE_CURL_LOG: path.join(root, "curl.log"),
-    BACKUP_SUITE_CONTROL_SCRIPT: path.join(REPO, "bin", "backup-control.sh"),
-    BACKUP_SUITE_CONTROL_SOCKET: path.join(root, "no-broker.sock"),
-    BACKUP_SUITE_GUI_NO_AUTO_UPDATE_CHECK: "1",
-    BACKUP_SUITE_GUI_CONFIG_DIR: path.join(root, "gui-config"),
-    BACKUP_SUITE_GUI_STATE_DIR: path.join(root, "gui-state"),
-    BACKUP_SUITE_GUI_STREAM_GRACE_MS: "1000"
+    FILESTOW_CONTROL_SCRIPT: path.join(REPO, "bin", "backup-control.sh"),
+    FILESTOW_CONTROL_SOCKET: path.join(root, "no-broker.sock"),
+    FILESTOW_GUI_NO_AUTO_UPDATE_CHECK: "1",
+    FILESTOW_GUI_CONFIG_DIR: path.join(root, "gui-config"),
+    FILESTOW_GUI_STATE_DIR: path.join(root, "gui-state"),
+    FILESTOW_GUI_STREAM_GRACE_MS: "1000"
   };
   fs.mkdirSync(env.HOME, { recursive: true });
   delete env.INVOCATION_ID;

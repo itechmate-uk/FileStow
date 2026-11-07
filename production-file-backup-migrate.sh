@@ -3,10 +3,10 @@
 set -euo pipefail
 
 SOURCE_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-INSTALL_DIR="/opt/backup-suite"
-CANONICAL_DIR="/opt/backup-suite-src"
-CONFIG_DIR="/etc/backup-suite"
-STATE_DIR="/var/lib/backup-suite"
+INSTALL_DIR="/opt/filestow"
+CANONICAL_DIR="/opt/filestow-src"
+CONFIG_DIR="/etc/filestow"
+STATE_DIR="/var/lib/filestow"
 UNIT_DIR="/etc/systemd/system"
 WORKSPACE_SOURCE="/home/user/php-projects-lv"
 CRYPTO_PROJECT="$WORKSPACE_SOURCE/crypto-wallets-api"
@@ -16,7 +16,7 @@ FILE_SOURCES_CONFIG="$CONFIG_DIR/file-sources.conf"
 FILE_BACKUP_UNIT="$UNIT_DIR/file-backup.service"
 TIMER_UNIT="file-backup.timer"
 SERVICE_UNIT="file-backup.service"
-RESTORE_MAX_BYTES="${BACKUP_SUITE_RESTORE_MAX_BYTES:-268435456}"
+RESTORE_MAX_BYTES="${FILESTOW_RESTORE_MAX_BYTES:-268435456}"
 AUTO_CONFIRM=0
 CHECK_ONLY=0
 MIGRATION_SUCCEEDED=0
@@ -28,7 +28,7 @@ RESTORE_DIR=""
 RUN_ID=$(date -u '+%Y%m%dT%H%M%SZ')
 RUN_STARTED_MARKER=""
 BACKUP_DIR=""
-CONTROL_ENV_FILE="/run/backup-suite/file-backup.env"
+CONTROL_ENV_FILE="/run/filestow/file-backup.env"
 PROJECT_FILTER_FILE=""
 VALIDATION_DIR=""
 RESOURCE_REPORT=""
@@ -38,7 +38,7 @@ usage() {
     cat <<'EOF'
 Usage: sudo ./production-file-backup-migrate.sh [--yes] [--check] [--only-project LABEL]...
 
-Safely deploys the current Backup Suite source, updates only known file-backup
+Safely deploys the current FileStow source, updates only known file-backup
 settings, runs the --links migration under resource limits, verifies a bounded
 remote restore, and enables file-backup.timer only after every step succeeds.
 
@@ -50,7 +50,7 @@ EOF
 }
 
 log() {
-    printf '[backup-suite-migrate] %s\n' "$*"
+    printf '[filestow-migrate] %s\n' "$*"
 }
 
 die() {
@@ -143,7 +143,7 @@ required_source_files=(
     "$SOURCE_DIR/bin/notify-lib.sh"
     "$SOURCE_DIR/bin/backup-watchdog.sh"
     "$SOURCE_DIR/bin/backup-profile.sh"
-    "$SOURCE_DIR/systemd/backup-suite-watchdog@.service.template"
+    "$SOURCE_DIR/systemd/filestow-watchdog@.service.template"
     "$SOURCE_DIR/systemd/file-backup.service.template"
     "$SOURCE_DIR/systemd/file-backup.timer.template"
     "$SOURCE_DIR/examples/project-policies/crypto-wallets-api.backup-excludes"
@@ -159,8 +159,8 @@ for command_name in awk chmod cp cut find flock git grep head install mktemp rea
     require_command "$command_name"
 done
 
-[[ "$RESTORE_MAX_BYTES" =~ ^[0-9]+$ ]] || die "BACKUP_SUITE_RESTORE_MAX_BYTES must be a positive integer"
-[ "$RESTORE_MAX_BYTES" -gt 0 ] || die "BACKUP_SUITE_RESTORE_MAX_BYTES must be greater than zero"
+[[ "$RESTORE_MAX_BYTES" =~ ^[0-9]+$ ]] || die "FILESTOW_RESTORE_MAX_BYTES must be a positive integer"
+[ "$RESTORE_MAX_BYTES" -gt 0 ] || die "FILESTOW_RESTORE_MAX_BYTES must be greater than zero"
 
 bash -n "$SOURCE_DIR/setup.sh" "$SOURCE_DIR"/bin/*.sh "$SOURCE_DIR/tests/run.sh" "$SOURCE_DIR/tests/fixtures"/*.sh
 
@@ -185,8 +185,8 @@ for protected_path in "$GLOBAL_CONFIG" "$FILE_SOURCES_CONFIG" "$RCLONE_CONFIG"; 
     [ -f "$protected_path" ] || die "Required production file is missing: $protected_path"
 done
 
-exec {MIGRATION_LOCK_FD}>/run/backup-suite-production-migrate.lock
-flock -n "$MIGRATION_LOCK_FD" || die "Another Backup Suite production migration is already running."
+exec {MIGRATION_LOCK_FD}>/run/filestow-production-migrate.lock
+flock -n "$MIGRATION_LOCK_FD" || die "Another FileStow production migration is already running."
 
 PRODUCTION_CHANGES_STARTED=1
 log "Disabling the file-backup timer before deployment."
@@ -297,8 +297,8 @@ set_shell_config_value "$GLOBAL_CONFIG" FILE_STABILITY_INTERVAL_SECONDS 10
 set_shell_config_value "$GLOBAL_CONFIG" FILE_CHANGED_DETAIL_LIMIT 20
 set_shell_config_value "$GLOBAL_CONFIG" FILE_BACKUP_RUNTIME_MAX_SEC 6h
 set_shell_config_value "$GLOBAL_CONFIG" FILE_BACKUP_RANDOMIZED_DELAY_SEC 15m
-set_shell_config_value "$GLOBAL_CONFIG" BACKUP_SUITE_LOG_MAX_BYTES 10485760
-set_shell_config_value "$GLOBAL_CONFIG" BACKUP_SUITE_LOG_KEEP_FILES 10
+set_shell_config_value "$GLOBAL_CONFIG" FILESTOW_LOG_MAX_BYTES 10485760
+set_shell_config_value "$GLOBAL_CONFIG" FILESTOW_LOG_KEEP_FILES 10
 set_shell_config_value "$GLOBAL_CONFIG" NOTIFY_DURABLE_LOG_LINES 120
 set_shell_config_value "$GLOBAL_CONFIG" NOTIFY_FAILURE_LOG_KEEP_FILES 100
 
@@ -369,13 +369,13 @@ sed \
     -e "s|__CONFIG_DIR__|$CONFIG_DIR|g" \
     -e 's|__USER_GROUP_DIRECTIVES__||g' \
     -e 's|__WATCHDOG_PRIVILEGED_DIRECTIVES__|Nice=-5\nOOMScoreAdjust=-900|g' \
-    "$SOURCE_DIR/systemd/backup-suite-watchdog@.service.template" > "$rendered_watchdog_unit"
+    "$SOURCE_DIR/systemd/filestow-watchdog@.service.template" > "$rendered_watchdog_unit"
 if grep -Eq '__[A-Z0-9_]+__' "$rendered_watchdog_unit"; then
-    die "Unresolved placeholder remains in rendered backup-suite-watchdog@.service"
+    die "Unresolved placeholder remains in rendered filestow-watchdog@.service"
 fi
-install -m 644 -o 0 -g 0 "$rendered_watchdog_unit" "$UNIT_DIR/backup-suite-watchdog@.service"
+install -m 644 -o 0 -g 0 "$rendered_watchdog_unit" "$UNIT_DIR/filestow-watchdog@.service"
 rm -f "$rendered_watchdog_unit"
-systemd-analyze verify "$FILE_BACKUP_UNIT" "$UNIT_DIR/backup-suite-watchdog@file-backup.service"
+systemd-analyze verify "$FILE_BACKUP_UNIT" "$UNIT_DIR/filestow-watchdog@file-backup.service"
 
 rendered_timer=$(mktemp)
 configured_file_schedule=$(bash -c '. "$1"; printf "%s" "${FILE_BACKUP_ONCALENDAR:-*:0/30}"' _ "$(readlink -f "$GLOBAL_CONFIG")")
@@ -388,9 +388,9 @@ install -m 644 -o 0 -g 0 "$rendered_timer" "$UNIT_DIR/file-backup.timer"
 rm -f "$rendered_timer"
 systemd-analyze verify "$UNIT_DIR/file-backup.timer"
 systemctl daemon-reload
-BACKUP_SUITE_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-profile.sh" apply
+FILESTOW_CONFIG_DIR="$CONFIG_DIR" "$INSTALL_DIR/bin/backup-profile.sh" apply
 configured_profile=$(bash -c '. "$1"; printf "%s" "${FILE_BACKUP_PROFILE:-custom}"' _ "$(readlink -f "$GLOBAL_CONFIG")")
-profile_values=$(BACKUP_SUITE_CONFIG_DIR="$CONFIG_DIR" bash -c '
+profile_values=$(FILESTOW_CONFIG_DIR="$CONFIG_DIR" bash -c '
     . "$1/bin/common.sh"
     load_global_config
     resolve_file_backup_profile "$2"
@@ -431,11 +431,11 @@ write_service_environment() {
     local use_project_filter="${3:-1}"
     local temp_environment
 
-    install -d -m 755 /run/backup-suite
-    temp_environment=$(mktemp /run/backup-suite/file-backup.env.XXXXXX)
-    printf 'BACKUP_SUITE_FILE_BACKUP_MODE=%s\nBACKUP_SUITE_CONFIG_DIR=%s\n' "$mode" "$config_dir" > "$temp_environment"
+    install -d -m 755 /run/filestow
+    temp_environment=$(mktemp /run/filestow/file-backup.env.XXXXXX)
+    printf 'FILESTOW_FILE_BACKUP_MODE=%s\nFILESTOW_CONFIG_DIR=%s\n' "$mode" "$config_dir" > "$temp_environment"
     if [ "$use_project_filter" -eq 1 ] && [ ${#MIGRATION_PROJECTS[@]} -gt 0 ]; then
-        printf 'BACKUP_SUITE_PROJECT_FILTER_FILE=%s\n' "$PROJECT_FILTER_FILE" >> "$temp_environment"
+        printf 'FILESTOW_PROJECT_FILTER_FILE=%s\n' "$PROJECT_FILTER_FILE" >> "$temp_environment"
     fi
     chmod 600 "$temp_environment"
     mv -f "$temp_environment" "$CONTROL_ENV_FILE"
@@ -620,7 +620,7 @@ restore_report="${restore_selection[0]}"
 restore_remote="${restore_selection[1]}"
 restore_size="${restore_selection[2]}"
 
-RESTORE_DIR=$(mktemp -d "/var/tmp/backup-suite-restore-${RUN_ID}.XXXXXX")
+RESTORE_DIR=$(mktemp -d "/var/tmp/filestow-restore-${RUN_ID}.XXXXXX")
 log "Restoring the smallest eligible migrated project (${restore_size} bytes) into $RESTORE_DIR"
 rclone copy "$restore_remote" "$RESTORE_DIR" \
     --config "$RCLONE_CONFIG" \
@@ -646,7 +646,7 @@ done < <(find "$RESTORE_DIR" -type l -print)
 
 log "Remote restore verification passed: symlinks=$restored_link_count report=$restore_report"
 case "$RESTORE_DIR" in
-    /var/tmp/backup-suite-restore-*)
+    /var/tmp/filestow-restore-*)
         rm -rf "$RESTORE_DIR"
         RESTORE_DIR=""
         ;;
@@ -659,7 +659,7 @@ validate_failed_sync_isolation() {
     local validation_config
     local validation_state
     local notification_marker
-    local notification_unit="backup-suite-notify@file-backup.service.service"
+    local notification_unit="filestow-notify@file-backup.service.service"
     local notification_wait=0
     local notification_count
     local first_invocation

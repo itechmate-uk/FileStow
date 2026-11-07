@@ -7,9 +7,9 @@
 
 const os = require("os");
 
-const APP_ID = "backup-suite-gui";
-const APP_NAME = "Backup Suite GUI";
-const TUNNEL_NAME = "backup-suite-gui";
+const APP_ID = "filestow-gui";
+const APP_NAME = "FileStow GUI";
+const TUNNEL_NAME = "filestow-gui";
 const TUNNEL_MANAGER_DOWNLOAD_URL = "https://github.com/itechmate-uk/ssh-tunnel-manager-dists/releases";
 
 function tomlString(value) {
@@ -44,8 +44,8 @@ function backendId(settings) {
 // A system-wide GUI runs as its own account, which nobody signs in as: guess the
 // first GUI admin (a member of its group) instead.
 function guessLogin(env = process.env) {
-  const group = String(env.BACKUP_SUITE_GUI_SOCKET_GROUP || "").trim();
-  if (String(env.BACKUP_SUITE_GUI_SYSTEM || "") === "1" && group) {
+  const group = String(env.FILESTOW_GUI_SOCKET_GROUP || "").trim();
+  if (String(env.FILESTOW_GUI_SYSTEM || "") === "1" && group) {
     try {
       const line = require("fs").readFileSync("/etc/group", "utf8").split("\n").find((row) => row.split(":")[0] === group);
       const member = line ? line.split(":")[3].split(",").map((name) => name.trim()).find(Boolean) : "";
@@ -353,15 +353,15 @@ Use local forwarding (-L), not remote forwarding.
 }
 
 const PLATFORMS = {
-  windows: { label: "Windows", fileName: "backup-suite-gui.cmd", contentType: "application/x-msdownload; charset=utf-8", render: windowsLauncher },
-  mac: { label: "macOS", fileName: "backup-suite-gui-mac.sh", contentType: "text/x-shellscript; charset=utf-8", render: posixLauncher },
-  linux: { label: "Linux", fileName: "backup-suite-gui-linux.sh", contentType: "text/x-shellscript; charset=utf-8", render: posixLauncher },
-  android: { label: "Android", fileName: "backup-suite-gui-android.txt", contentType: "text/plain; charset=utf-8", render: androidLauncherInfo }
+  windows: { label: "Windows", fileName: "filestow-gui.cmd", contentType: "application/x-msdownload; charset=utf-8", render: windowsLauncher },
+  mac: { label: "macOS", fileName: "filestow-gui-mac.sh", contentType: "text/x-shellscript; charset=utf-8", render: posixLauncher },
+  linux: { label: "Linux", fileName: "filestow-gui-linux.sh", contentType: "text/x-shellscript; charset=utf-8", render: posixLauncher },
+  android: { label: "Android", fileName: "filestow-gui-android.txt", contentType: "text/plain; charset=utf-8", render: androidLauncherInfo }
 };
 
 function connectFile(kind, p) {
   if (kind === "toml") {
-    return { contentType: "application/toml; charset=utf-8", fileName: "backup-suite-gui-tunnel-manager.toml", body: tunnelManagerToml(p) };
+    return { contentType: "application/toml; charset=utf-8", fileName: "filestow-gui-tunnel-manager.toml", body: tunnelManagerToml(p) };
   }
   const entry = PLATFORMS[kind];
   if (!entry) return null;
@@ -375,8 +375,8 @@ const LAUNCHER_HOW_TO = {
   android: "Steps for Termux on Android (the Phone or tablet tab has them too)."
 };
 
-// Where `backup-suite-gui-server status` saves the launcher scripts on the server.
-const LAUNCHER_DIR = "~/.local/share/backup-suite-gui/client-launchers";
+// Where `filestow-gui-server status` saves the launcher scripts on the server.
+const LAUNCHER_DIR = "~/.local/share/filestow-gui/client-launchers";
 
 function mobileInstructions(p) {
   const address = `http://127.0.0.1:${p.localPort}/`;
@@ -422,7 +422,7 @@ function connectInstructions(p, settings) {
     unit: p.unit,
     tunnel_manager: {
       download_url: TUNNEL_MANAGER_DOWNLOAD_URL,
-      file_name: "backup-suite-gui-tunnel-manager.toml",
+      file_name: "filestow-gui-tunnel-manager.toml",
       url: "/api/connect/file?kind=toml",
       toml: tunnelManagerToml(p)
     },
@@ -434,14 +434,14 @@ function connectInstructions(p, settings) {
     manual: { ssh: `ssh -N -L 127.0.0.1:${p.localPort}:${forwardTarget(p)} ${p.sshTarget}`, address: `http://127.0.0.1:${p.localPort}/` },
     tcp_note: "If an SSH app can only forward to a host and port, switch the GUI to tcp mode (Settings, Tunnel Manager, GUI listener) and download the profile and launchers again. In tcp mode every local account on the server can reach the GUI.",
     cli: {
-      status: "gui/scripts/backup-suite-gui-server status",
-      bundle: `gui/scripts/backup-suite-gui-server bundle --backend ${p.backendId}`,
+      status: "gui/scripts/filestow-gui-server status",
+      bundle: `gui/scripts/filestow-gui-server bundle --backend ${p.backendId}`,
       launcher_dir: LAUNCHER_DIR
     }
   };
 }
 
-// Plain-text "ways to connect" for `backup-suite-gui-server status`, like agentw-gui status.
+// Plain-text "ways to connect" for `filestow-gui-server status`, like agentw-gui status.
 function connectText(info, savedFiles = {}) {
   const lines = [];
   lines.push(info.socket

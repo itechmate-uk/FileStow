@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Backup Suite resource watchdog.
+# FileStow resource watchdog.
 #
 # Runs only while a backup unit runs (file-backup.service pulls it in with
 # Wants=) and reads the unit's cgroup v2 counters with shell builtins, so a
@@ -91,7 +91,7 @@ pressure_sustain_seconds="${WATCHDOG_PRESSURE_SUSTAIN_SECONDS:-30}"
 retry_wait_seconds="${WATCHDOG_RETRY_WAIT_SECONDS:-1800}"
 retry_clear_seconds="${WATCHDOG_RETRY_CLEAR_SECONDS:-60}"
 notify_profile_steps="${WATCHDOG_NOTIFY_PROFILE_STEPS:-0}"
-cgroup_root="${BACKUP_SUITE_CGROUP_ROOT:-/sys/fs/cgroup}"
+cgroup_root="${FILESTOW_CGROUP_ROOT:-/sys/fs/cgroup}"
 kill_grace_seconds="${WATCHDOG_KILL_GRACE_SECONDS:-30}"
 tasks_warn_percent="${WATCHDOG_TASKS_WARN_PERCENT:-90}"
 report_interval_seconds="${WATCHDOG_REPORT_INTERVAL_SECONDS:-300}"
@@ -126,7 +126,7 @@ episode_file=$(join_path "$watchdog_dir" "${unit_tag}.episode")
 run_progress_file=$(join_path "$STATE_DIR" "run" "progress.env")
 host_name=$(trim "${REMOTE_HOSTNAME:-}")
 [ -n "$host_name" ] || host_name=$(hostname)
-title_prefix=$(trim "${NOTIFY_NTFY_TITLE_PREFIX:-Backup Suite}")
+title_prefix=$(trim "${NOTIFY_NTFY_TITLE_PREFIX:-FileStow}")
 
 now_usec() {
     local realtime="$EPOCHREALTIME"
@@ -171,7 +171,7 @@ resolve_cgroup_dir() {
     fi
     control_group=$("${SYSTEMCTL_COMMAND[@]}" show "$monitored_unit" -p ControlGroup --value 2>/dev/null)
     if [ -n "$control_group" ]; then
-        cgroup_dir="${BACKUP_SUITE_CGROUP_ROOT:-/sys/fs/cgroup}$control_group"
+        cgroup_dir="${FILESTOW_CGROUP_ROOT:-/sys/fs/cgroup}$control_group"
     else
         cgroup_dir=""
     fi

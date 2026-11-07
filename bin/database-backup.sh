@@ -10,7 +10,7 @@ parse_standard_runtime_args "$@"
 setup_journal_logging "backup-db"
 load_global_config
 setup_durable_logging "backup-db"
-acquire_backup_lock "backup-suite" "backup-suite"
+acquire_backup_lock "filestow" "filestow"
 
 require_command mysqldump
 require_command mysql
@@ -41,7 +41,7 @@ if [ -n "${DB_RCLONE_EXTRA_FLAGS:-}" ]; then
 fi
 
 db_progress_args=()
-if is_enabled_value "${BACKUP_SUITE_RCLONE_VERBOSE:-0}"; then
+if is_enabled_value "${FILESTOW_RCLONE_VERBOSE:-0}"; then
     db_progress_args=(--stats 10s --stats-one-line --stats-log-level NOTICE)
 fi
 

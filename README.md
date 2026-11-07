@@ -1,12 +1,12 @@
-# Backup Suite
+# FileStow
 
-Backup Suite is a config-driven Linux backup solution for:
+FileStow is a config-driven Linux backup solution for:
 
 - one-way file backup with archived deletions
 - selected MySQL or MariaDB database dumps as restore points
 - database size monitoring
 
-The suite is designed to be:
+FileStow is designed to be:
 
 - standalone first
 - ISPConfig-compatible second
@@ -21,18 +21,18 @@ Download the latest release from
 server (Linux with systemd), as the login that will use the GUI:
 
 ```bash
-tar -xzf backup-suite-<version>.tar.gz
-cd backup-suite-<version>
+tar -xzf filestow-<version>.tar.gz
+cd filestow-<version>
 sudo ./install.sh --install-deps
 ```
 
-This is the recommended setup: Backup Suite runs system-wide as root, and the GUI
-runs as your own login (no root), changing Backup Suite only through a small root
+This is the recommended setup: FileStow runs system-wide as root, and the GUI
+runs as your own login (no root), changing FileStow only through a small root
 control service with a fixed, audited list of actions. Optional setups (one shared
 GUI for all admins, or a user-only install without root) are in
 [docs/INSTALLATION.md](docs/INSTALLATION.md#setups).
 
-`install.sh` installs Backup Suite and its browser GUI, creates a starting
+`install.sh` installs FileStow and its browser GUI, creates a starting
 configuration (no jobs, no destinations yet) and prints how to connect to the GUI;
 everything else is set up there. The GUI never runs as root (`./install.sh --gui-only`
 installs just your GUI, without sudo). Updates are installed from the GUI
@@ -92,10 +92,10 @@ systemctl status file-backup.service --no-pager
 journalctl -t backup-file -f
 ```
 
-If Google Drive backup logs show `invalid_grant` or token-revoked errors, reconnect the rclone config used by Backup Suite, not a different user/default rclone config. In system mode that is usually:
+If Google Drive backup logs show `invalid_grant` or token-revoked errors, reconnect the rclone config used by FileStow, not a different user/default rclone config. In system mode that is usually:
 
 ```bash
-sudo rclone --config /etc/backup-suite/rclone.conf config reconnect gdrive:
+sudo rclone --config /etc/filestow/rclone.conf config reconnect gdrive:
 ```
 
 See [docs/GOOGLE_DRIVE.md](docs/GOOGLE_DRIVE.md) and [docs/OPERATIONS.md](docs/OPERATIONS.md).
@@ -136,22 +136,22 @@ It keeps `file-backup.timer` disabled unless deployment, dry-run reporting, expl
 
 ## Install Modes
 
-Backup Suite supports both:
+FileStow supports both:
 
 - system-wide mode
 - per-user mode
 
 System mode defaults:
 
-- scripts: `/opt/backup-suite`
-- canonical source: `/opt/backup-suite-src`
-- config: `/etc/backup-suite`
+- scripts: `/opt/filestow`
+- canonical source: `/opt/filestow-src`
+- config: `/etc/filestow`
 
 User mode defaults:
 
-- scripts: `~/.local/share/backup-suite`
-- config: `~/.config/backup-suite`
-- state: `~/.local/state/backup-suite`
+- scripts: `~/.local/share/filestow`
+- config: `~/.config/filestow`
+- state: `~/.local/state/filestow`
 
 ## Documentation
 
@@ -170,7 +170,7 @@ User mode defaults:
 - `config/` example config files only
 - `systemd/` unit templates
 - `docs/` detailed documentation
-- `install.sh` installer for a release: installs or upgrades Backup Suite and the GUI
+- `install.sh` installer for a release: installs or upgrades FileStow and the GUI
 - `setup.sh` low-level installer and refresh entry point (used by `install.sh`)
 - `gui/` the browser GUI
 - `production-deploy.sh` routine deployment for an installed host (never disables the timer; rolls back on failure)
@@ -185,7 +185,7 @@ This repository is intended to contain example configuration only.
 
 ## License
 
-Backup Suite is licensed under the [Apache License, Version 2.0](LICENSE).
+FileStow is licensed under the [Apache License, Version 2.0](LICENSE).
 If you redistribute it or software derived from it, keep the [NOTICE](NOTICE) file
-and credit the original project: "Based on Backup Suite
+and credit the original project: "Based on FileStow
 (https://github.com/itechmate-uk/FileStow)".

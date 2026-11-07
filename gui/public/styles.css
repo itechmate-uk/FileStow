@@ -1,4 +1,4 @@
-/* Backup Suite GUI. Tokens follow agentw-gui's palette; every token has a light and a
+/* FileStow GUI. Tokens follow agentw-gui's palette; every token has a light and a
    dark value. Contrast pairs are checked by gui/test/contrast.test.js. */
 
 :root {

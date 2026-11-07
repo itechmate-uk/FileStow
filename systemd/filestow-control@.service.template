@@ -1,5 +1,5 @@
 [Unit]
-Description=Backup Suite control request (connection %i)
+Description=FileStow control request (connection %i)
 Documentation=file://__INSTALL_DIR__/README.md
 CollectMode=inactive-or-failed
 
@@ -8,13 +8,13 @@ Type=exec
 # One JSON request on the socket, one JSON reply. The instance name of an
 # accepted Unix socket connection is <n>-<peer pid>-<peer uid>; the script
 # allows only root and members of __GUI_GROUP__.
-Environment=BACKUP_SUITE_CONFIG_DIR=__CONFIG_DIR__
-Environment=BACKUP_SUITE_GUI_GROUP=__GUI_GROUP__
+Environment=FILESTOW_CONFIG_DIR=__CONFIG_DIR__
+Environment=FILESTOW_GUI_GROUP=__GUI_GROUP__
 ExecStart=__INSTALL_DIR__/bin/backup-control.sh --peer %i
 StandardInput=socket
 StandardOutput=socket
 StandardError=journal
-SyslogIdentifier=backup-suite-control
+SyslogIdentifier=filestow-control
 RuntimeMaxSec=120
 NoNewPrivileges=yes
 PrivateTmp=yes

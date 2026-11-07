@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes a fake Backup Suite release like the Release workflow's, served from
+"""Writes a fake FileStow release like the Release workflow's, served from
 file:// URLs, whose installers only append a line to $UPDATE_MARK.
 
     make-fake-release.py <dir> <version> [evil]
@@ -7,14 +7,14 @@ file:// URLs, whose installers only append a line to $UPDATE_MARK.
 import hashlib, io, json, os, sys, tarfile
 root, version = sys.argv[1:3]
 evil = sys.argv[3] if len(sys.argv) > 3 else ""
-top = "backup-suite-%s" % version
+top = "filestow-%s" % version
 tag = "v" + version
 os.makedirs(os.path.join(root, tag), exist_ok=True)
 files = {
     top + "/VERSION": version + "\n",
     # Like the real installer: needs HOME (a systemd unit has none) under set -u.
     top + "/install.sh": '#!/bin/bash\nset -u\nprintf "install.sh %s home=%s\\n" "$*" "$HOME" >> "$UPDATE_MARK"\n',
-    top + "/gui/scripts/backup-suite-gui-server": '#!/bin/bash\nprintf "gui-server %s\\n" "$*" >> "$UPDATE_MARK"\n',
+    top + "/gui/scripts/filestow-gui-server": '#!/bin/bash\nprintf "gui-server %s\\n" "$*" >> "$UPDATE_MARK"\n',
 }
 if evil:
     files["../evil.txt"] = "outside\n"

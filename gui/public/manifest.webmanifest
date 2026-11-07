@@ -1,7 +1,7 @@
 {
-  "name": "Backup Suite GUI",
+  "name": "FileStow GUI",
   "short_name": "Backups",
-  "description": "Backup Suite status, resource use and controls through an SSH tunnel.",
+  "description": "FileStow status, resource use and controls through an SSH tunnel.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
