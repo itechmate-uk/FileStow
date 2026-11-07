@@ -637,7 +637,7 @@ production-deploy.sh and setup.sh).
 ## Revision 8 (2026-10-22): self-update, GUI without sudo, system-wide GUI
 
 - `bin/backup-suite-update.py` (`check`, `apply`, `gui-apply`, `status`): the latest
-  published release of itechmate-uk/backup-suite only; asset URLs must be under
+  published release of itechmate-uk/FileStow only; asset URLs must be under
   `releases/download/<tag>/`; archive size and SHA-256 must match; extraction refuses
   absolute paths, `..`, links leaving the folder and other file types; `VERSION` in
   the archive must match. Keeps the installed and the previous release.

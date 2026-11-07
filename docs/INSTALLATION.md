@@ -21,7 +21,7 @@ that login and adds it to the group.
 
 ## Install from a release (recommended)
 
-Each release on [GitHub](https://github.com/itechmate-uk/backup-suite/releases) has
+Each release on [GitHub](https://github.com/itechmate-uk/FileStow/releases) has
 `backup-suite-<version>.tar.gz` and its SHA-256 checksum. On the server, as the login
 that will use the GUI:
 
@@ -88,6 +88,10 @@ first, then the GUI, from this project's GitHub releases:
 - A Backup Suite older than 1.1 has no update service yet: the Updates window updates
   it in a terminal, where sudo asks for your password (typed into the window's input
   box and passed to the terminal, never kept).
+- Releases come from https://github.com/itechmate-uk/FileStow since 1.1.6. An install
+  older than 1.1.6 still looks in the old repository, which is no longer public:
+  install 1.1.6 once by hand (download it as above, then `sudo ./install.sh`); from
+  then on it updates itself from FileStow.
 
 Running `install.sh` from a newer release still works as well.
 

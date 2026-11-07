@@ -2632,7 +2632,7 @@
   // The one manual update of a Backup Suite older than 1.1, as commands to copy.
   function manualUpdateNode(version) {
     const name = `backup-suite-${version}`;
-    const base = `https://github.com/itechmate-uk/backup-suite/releases/download/v${version}`;
+    const base = `https://github.com/itechmate-uk/FileStow/releases/download/v${version}`;
     const system = state.updates?.backend?.mode !== "user" && state.session?.backend?.mode !== "user";
     const command = [
       `cd "$(mktemp -d)"`,

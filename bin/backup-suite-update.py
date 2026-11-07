@@ -38,7 +38,7 @@ import time
 import urllib.error
 import urllib.request
 
-REPOSITORY = "itechmate-uk/backup-suite"
+REPOSITORY = "itechmate-uk/FileStow"
 # Overridable for tests only; a GUI can never pass them (the control script runs
 # with the broker unit's environment, and the GUI starts this with its own).
 LATEST_URL = os.environ.get("BACKUP_SUITE_UPDATE_LATEST_URL",

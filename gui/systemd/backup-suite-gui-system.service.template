@@ -1,6 +1,6 @@
 [Unit]
 Description=Backup Suite GUI (system-wide, shared by the members of __GROUP__)
-Documentation=https://github.com/itechmate-uk/backup-suite/blob/main/docs/GUI.md
+Documentation=https://github.com/itechmate-uk/FileStow/blob/main/docs/GUI.md
 After=network.target
 StartLimitIntervalSec=600
 StartLimitBurst=5

@@ -17,7 +17,7 @@ It uses `rclone`, so it can work with any `rclone` backend the user configures, 
 ## Install
 
 Download the latest release from
-[Releases](https://github.com/itechmate-uk/backup-suite/releases/latest), then on the
+[Releases](https://github.com/itechmate-uk/FileStow/releases/latest), then on the
 server (Linux with systemd), as the login that will use the GUI:
 
 ```bash
@@ -188,4 +188,4 @@ This repository is intended to contain example configuration only.
 Backup Suite is licensed under the [Apache License, Version 2.0](LICENSE).
 If you redistribute it or software derived from it, keep the [NOTICE](NOTICE) file
 and credit the original project: "Based on Backup Suite
-(https://github.com/itechmate-uk/backup-suite)".
+(https://github.com/itechmate-uk/FileStow)".
