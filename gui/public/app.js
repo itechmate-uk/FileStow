@@ -606,7 +606,7 @@
       clear(host).append(loadingNode());
       try {
         const journal = await control("journal", { source: select.value, lines: Number(lines.value) });
-        clear(host).append(journal.truncated ? h("p", { class: "notice info" }, "Shortened to the last 1 MiB.") : null, textBlock(journal.lines, { fileName: `${select.value}.log` }));
+        append(clear(host), [journal.truncated ? h("p", { class: "notice info" }, "Shortened to the last 1 MiB.") : null, textBlock(journal.lines, { fileName: `${select.value}.log` })]);
       } catch (error) {
         clear(host).append(errorNode(error));
       }
@@ -1840,9 +1840,9 @@
       panel.append(loadingNode());
       try {
         const log = await control("job.log", { name: data.entry.name });
-        clear(panel).append(h("p", { class: "muted" }, log.run ? `This job's lines of the run started ${log.run}.` : "No run in the durable log yet."),
+        append(clear(panel), [h("p", { class: "muted" }, log.run ? `This job's lines of the run started ${log.run}.` : "No run in the durable log yet."),
           log.truncated ? h("p", { class: "notice info" }, "Only the last 2000 lines are shown.") : null,
-          textBlock(log.lines, { fileName: `${data.entry.name.replace(/[^A-Za-z0-9._-]+/g, "_")}-log.txt` }));
+          textBlock(log.lines, { fileName: `${data.entry.name.replace(/[^A-Za-z0-9._-]+/g, "_")}-log.txt` })]);
       } catch (error) {
         clear(panel).append(errorNode(error));
       }
@@ -2990,7 +2990,7 @@
         ? h("div", { class: "toolbar-row tight end" }, h("button", { type: "button", onclick: () => startUpdate("gui", latestVersion) }, "Only the GUI…"))
         : null);
 
-    clear(body).append(
+    append(clear(body), [
       latest.ok
         ? h("section", { class: "card" },
           h("div", { class: "channel-head" }, h("h3", {}, `Latest release: ${latest.latest}`), latest.published_at ? pill(latest.published_at.slice(0, 10), "info") : null),
@@ -3000,7 +3000,7 @@
       everything,
       h("div", { class: "cards" }, backendCard, guiCard),
       h("div", { class: "toolbar-row tight" }, checkButton,
-        h("span", { class: "muted" }, `${data.auto_check ? "Checked automatically every 6 hours" : "Automatic checks are off"} (Settings → General). Updates come only from this project's GitHub releases, checked against their SHA-256.`)));
+        h("span", { class: "muted" }, `${data.auto_check ? "Checked automatically every 6 hours" : "Automatic checks are off"} (Settings → General). Updates come only from this project's GitHub releases, checked against their SHA-256.`))]);
     pollUpdatesWhileRunning();
   }
 
