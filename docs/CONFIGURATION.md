@@ -132,7 +132,7 @@ Live database files and wallet stores should still have an application-consisten
 
 FileStow uses rclone `--links`. It does not follow link targets. Relative, absolute, dangling, and directory symlinks are represented remotely as `.rclonelink` records and are recreated when restored with `rclone --links`.
 
-For a populated destination that was previously created with `--copy-links`, the first run is gated. Generate and review reports while the timer remains disabled:
+For a populated destination that was previously created with `--copy-links`, the first run is gated, but only when the remote already holds a real file or folder at a symlink's path (the link was followed and uploaded as content, which `--links` would replace). Symlinks at paths the remote does not have yet, such as `node_modules/.bin` links created by a build, are backed up as links without a migration, and the project is marked as migrated. For the gated case, generate and review reports while the timer remains disabled:
 
 ```bash
 /opt/filestow/bin/file-backup.sh --verbose --link-migration-report

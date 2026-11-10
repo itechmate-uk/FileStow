@@ -169,6 +169,40 @@ EOF
     rm -rf "$test_root"
 }
 
+test_new_symlinks_need_no_migration() {
+    local test_root
+    local output_file
+    test_root=$(mktemp -d)
+    output_file="$test_root/output.log"
+    # The remote already has this project, but not at the paths of its new symlinks
+    # (a build created node_modules/.bin links): no confirmation is needed.
+    mkdir -p "$test_root/source/tool/bin" "$test_root/source/node_modules/.bin" "$test_root/remote/projects/project"
+    printf 'current\n' > "$test_root/source/readme.txt"
+    printf 'tool\n' > "$test_root/source/tool/bin/run.js"
+    printf 'current\n' > "$test_root/remote/projects/project/readme.txt"
+    ln -s ../../tool/bin/run.js "$test_root/source/node_modules/.bin/run"
+    ln -s tool "$test_root/source/tool-link"
+
+    write_test_config "$test_root" rclone 'backup:'
+    cat > "$test_root/config/rclone.conf" <<EOF
+[backup]
+type = alias
+remote = $test_root/remote
+EOF
+    printf '1|project|%s|fixed|projects/project|.nosync|single\n' "$test_root/source" > "$test_root/config/file-sources.conf"
+
+    run_backup "$test_root" > "$output_file" 2>&1 || fail_test "backup with new symlinks failed: $(tail -5 "$output_file")"
+    assert_contains "$output_file" 'new to the remote'
+    assert_not_contains "$output_file" 'Migration confirmation required'
+    assert_symlink_target "$test_root/remote/projects/project/node_modules/.bin/run" '../../tool/bin/run.js'
+    assert_symlink_target "$test_root/remote/projects/project/tool-link" 'tool'
+    find "$test_root/state/link-migrations" -type f -name '*.confirmed' -print -quit | grep -q . || fail_test 'no migration marker was written'
+
+    # A later run checks nothing again and still succeeds.
+    run_backup "$test_root" > "$output_file" 2>&1 || fail_test "second backup failed: $(tail -5 "$output_file")"
+    rm -rf "$test_root"
+}
+
 test_changing_file_policy() {
     local test_root
     local output_file
@@ -768,6 +802,20 @@ test_failure_notification_description() {
     [ "$(grep -c '^curl invoked' "$test_root/curl.log")" -eq 2 ] || fail_test 'a failed attachment upload must fall back to one plain message'
     assert_contains "$test_root/curl.log" 'arg: --data-binary'
     assert_contains "$output_file" 'resending as a plain message'
+
+    # The run summary names the outcome with hyphens; it must still be explained.
+    {
+        echo 'File backup started at 2026-11-10 03:00:00 UTC'
+        echo 'Run summary: outcome=migration-confirmation-required profile=moderate synced=58 skipped=0 skipped_changed=0 deferred_active=2 failed=0 migration_required=1 migration_reports=1 cleanup_failed=0'
+    } > "$test_root/state/logs/backup-file.log"
+    rm -f "$test_root/curl.log"
+    HOME="$test_root/home" PATH="$test_root/bin:$PATH" FAKE_CURL_LOG="$test_root/curl.log" FAKE_SYSTEMCTL_LOG="$test_root/systemctl.log" \
+        FILESTOW_CONFIG_DIR="$test_root/config" \
+        "$ROOT_DIR/bin/notify-failure.sh" file-backup.service > "$output_file" 2>&1
+    message=$(curl_message_header "$test_root/curl.log")
+    [[ "$message" == *"symlink"* ]] || fail_test "the link migration outcome was not explained: $message"
+    [[ "$message" != *"No known error pattern matched"* ]] || fail_test 'the link migration outcome fell back to no known pattern'
+
     rm -rf "$test_root"
 }
 
@@ -2125,6 +2173,7 @@ chmod 755 "$ROOT_DIR/tests/fixtures/fake-rclone.sh" "$ROOT_DIR/tests/fixtures/fa
 
 run_test 'symlink round-trip restore' test_symlink_round_trip
 run_test 'safe link migration gate and restore' test_link_migration_gate_and_restore
+run_test 'new symlinks back up without a migration' test_new_symlinks_need_no_migration
 run_test 'changing-file retry and bounded skip' test_changing_file_policy
 run_test 'per-project records and changed files' test_project_records_and_changes
 run_test 'project isolation and no delete on error' test_project_isolation_and_no_delete_on_error

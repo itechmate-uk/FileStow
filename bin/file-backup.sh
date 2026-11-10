@@ -613,6 +613,24 @@ record_skipped_project() {
     record_project_result "$1" "$2" "$3" "$destination_path" "$state_key" "$5"
 }
 
+# find_link_migration_conflicts <source list> <destination list>: prints the
+# destination paths that sit at a source symlink's path (the link itself, or a
+# file under it when the link was a followed folder).
+find_link_migration_conflicts() {
+    awk '
+        NR == FNR { if (sub(/\.rclonelink$/, "")) links[$0] = 1; next }
+        {
+            if ($0 in links) { print; next }
+            n = split($0, parts, "/")
+            prefix = ""
+            for (i = 1; i < n; i++) {
+                prefix = (i == 1) ? parts[1] : prefix "/" parts[i]
+                if (prefix in links) { print; next }
+            }
+        }
+    ' "$1" "$2"
+}
+
 write_link_migration_report() {
     local source_path="$1"
     local destination_path="$2"
@@ -826,6 +844,7 @@ process_project_sync() {
     local migration_marker_file
     local destination_list_file
     local source_probe_list_file
+    local link_conflicts_file
     local attempt_one_log
     local attempt_two_log
     local attempt_three_log
@@ -925,7 +944,19 @@ process_project_sync() {
             return 1
         fi
 
-        if [ -s "$destination_list_file" ]; then
+        # Only a symlink whose path the remote already holds as a real file or
+        # folder (uploaded before --links, with the link followed) needs the
+        # one-time confirmed migration: syncing would replace that copy. New
+        # symlinks at paths the remote does not have are backed up as links.
+        link_conflicts_file=$(mktemp)
+        temp_runtime_files+=("$link_conflicts_file")
+        find_link_migration_conflicts "$source_probe_list_file" "$destination_list_file" > "$link_conflicts_file"
+        if [ ! -s "$link_conflicts_file" ]; then
+            mkdir -p "$(dirname "$migration_marker_file")"
+            printf 'confirmed_at=%s\nreason=no remote copies at symlink paths\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$migration_marker_file"
+            echo "Symlinks in '$project_label' are new to the remote; backing them up as links (no migration needed)."
+        fi
+        if [ -s "$link_conflicts_file" ]; then
             migration_applies=1
             if is_enabled_value "$FILESTOW_CONFIRM_LINK_MIGRATION" && [ -s "$migration_report_file" ]; then
                 echo "Applying confirmed --links migration using report '$migration_report_file'."

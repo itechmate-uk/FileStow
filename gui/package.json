@@ -1,6 +1,6 @@
 {
   "name": "filestow-gui",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Browser GUI for FileStow, reached through an SSH tunnel (Tunnel Manager).",
   "license": "Apache-2.0",

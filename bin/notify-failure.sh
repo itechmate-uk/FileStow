@@ -176,7 +176,7 @@ if log_matches 'source path is missing|missing-source|no child project directori
         "A configured backup source folder no longer exists." \
         "Update file-sources.conf, or restore the missing folder."
 fi
-if log_matches 'migration confirmation required'; then
+if log_matches 'migration[- ]confirmation[- ]required'; then
     add_explanation \
         "A project needs its one-time symlink (--links) migration confirmed before it can be backed up." \
         "Review the migration report and run the production migration with --only-project for that project."
