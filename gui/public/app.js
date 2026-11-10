@@ -2624,9 +2624,44 @@
     return null;
   }
 
-  function updateLogNode(status) {
-    if (!status?.log_tail) return null;
-    return h("details", { class: "update-log" }, h("summary", {}, "Installer log"), h("pre", { class: "log-view" }, status.log_tail));
+  // Sections of the Updates window that stay the same element across its refreshes,
+  // so one opened stays open and keeps its scroll position; only the text changes.
+  const keptSections = new Map();
+
+  function keptSection(key, summary, text, className = "") {
+    if (!text) {
+      keptSections.delete(key);
+      return null;
+    }
+    let entry = keptSections.get(key);
+    if (!entry) {
+      const pre = h("pre", { class: "log-view" });
+      const details = h("details", { class: className || null }, h("summary", {}, summary), pre);
+      entry = { details, pre, text: null, scrollTop: 0, atEnd: true };
+      pre.addEventListener("scroll", () => {
+        entry.scrollTop = pre.scrollTop;
+        entry.atEnd = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 8;
+      });
+      keptSections.set(key, entry);
+    }
+    if (entry.text !== text) {
+      entry.pre.textContent = text;
+      entry.text = text;
+    }
+    return entry.details;
+  }
+
+  // After the window is rebuilt: put each kept section back where it was scrolled
+  // (following the end of a growing log when it was at the end).
+  function restoreKeptSections() {
+    for (const entry of keptSections.values()) {
+      if (!entry.details.isConnected || !entry.details.open) continue;
+      entry.pre.scrollTop = entry.atEnd ? entry.pre.scrollHeight : entry.scrollTop;
+    }
+  }
+
+  function updateLogNode(status, key) {
+    return keptSection(`log-${key}`, "Installer log", status?.log_tail || "", "update-log");
   }
 
   // The one manual update of a FileStow without the update service, as commands to copy.
@@ -2975,7 +3010,7 @@
             : backend.supported ? pill("up to date", "ok") : pill("unknown", "")),
       kv([["Installed", backend.installed || (backendNeedsManualUpdate(data) ? "without the update service" : "unknown")], ["Runs", backend.mode === "system" ? "system-wide, as root" : backend.mode === "user" ? "for your login" : (state.session?.backend?.label || "")]]),
       backendNeedsManualUpdate(data) ? manualUpdateNode(latestVersion) : backend.supported ? null : h("p", { class: "notice info" }, backend.error || "FileStow could not be reached."),
-      updateStateNode(backend.status), updateLogNode(backend.status),
+      updateStateNode(backend.status), updateLogNode(backend.status, "backend"),
       backend.update_available && !running
         ? h("div", { class: "toolbar-row tight end" }, h("button", { type: "button", onclick: () => startUpdate("backend", latestVersion) }, "Only FileStow…"))
         : null);
@@ -2985,7 +3020,7 @@
         gui.update_available ? pill(`${latestVersion} available`, "warn") : pill(gui.system ? "updated with FileStow" : "up to date", "ok")),
       kv([["Installed", gui.version || ""], ["Runs as", gui.system ? "the system service filestow-gui.service" : "your user service, no root"]]),
       gui.updater || gui.system ? null : h("p", { class: "notice info" }, "This GUI has no updater yet: install it once more from a release (./install.sh --gui-only, no sudo)."),
-      updateStateNode(gui.status), updateLogNode(gui.status),
+      updateStateNode(gui.status), updateLogNode(gui.status, "gui"),
       gui.update_available && gui.updater && !running
         ? h("div", { class: "toolbar-row tight end" }, h("button", { type: "button", onclick: () => startUpdate("gui", latestVersion) }, "Only the GUI…"))
         : null);
@@ -2995,12 +3030,13 @@
         ? h("section", { class: "card" },
           h("div", { class: "channel-head" }, h("h3", {}, `Latest release: ${latest.latest}`), latest.published_at ? pill(latest.published_at.slice(0, 10), "info") : null),
           kv([["Checked", latest.checked_at || ""], ["Release page", latest.url ? h("a", { href: latest.url, target: "_blank", rel: "noopener noreferrer" }, latest.url) : ""]]),
-          latest.notes ? h("details", {}, h("summary", {}, "Release notes"), h("pre", { class: "log-view" }, latest.notes)) : null)
+          keptSection("release-notes", "Release notes", latest.notes || ""))
         : h("div", { class: "notice bad", role: "alert" }, `Could not check for updates: ${latest.error || "unknown error"}`),
       everything,
       h("div", { class: "cards" }, backendCard, guiCard),
       h("div", { class: "toolbar-row tight" }, checkButton,
         h("span", { class: "muted" }, `${data.auto_check ? "Checked automatically every 6 hours" : "Automatic checks are off"} (Settings → General). Updates come only from this project's GitHub releases, checked against their SHA-256.`))]);
+    restoreKeptSections();
     pollUpdatesWhileRunning();
   }
 

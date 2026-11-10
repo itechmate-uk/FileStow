@@ -270,6 +270,12 @@ async function main() {
         if (!(await page.$('#update-body button:has-text("Only FileStow")'))) failures.push(`${label}/${scheme}: no FileStow update button`);
         if (!(await page.$('#update-body button:has-text("Only the GUI")'))) failures.push(`${label}/${scheme}: no GUI update button`);
         await page.screenshot({ path: path.join(screenshotDir, `${label}-${scheme}-updates.png`), fullPage: true });
+        // A section opened in the Updates window stays open when the window refreshes.
+        await page.click('#update-body details summary:has-text("Release notes")');
+        await page.click('#update-body button:has-text("Check now")');
+        await page.waitForSelector('#update-body button:has-text("Check now"):not([disabled])', { timeout: 15000 });
+        await page.waitForTimeout(300);
+        if (!(await page.$('#update-body details[open] summary:has-text("Release notes")'))) failures.push(`${label}/${scheme}: an opened section of the Updates window closed when it refreshed`);
         // A backup is running in this fixture: the update asks whether to stop it.
         await page.click('#update-body button:has-text("Update everything to 9.9.9")');
         await page.waitForSelector("#confirm-dialog[open]");

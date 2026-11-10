@@ -1208,6 +1208,22 @@ test_watchdog_unit_and_deploy_guards() {
     assert_contains "$deploy" 'install_swap_cap_dropin database-size-check.service'
     assert_contains "$deploy" 'install_runtime_preserve_dropin database-backup.service'
     assert_contains "$deploy" 'install_runtime_preserve_dropin database-size-check.service'
+    # An upgrade re-renders the database units too, or they keep running scripts
+    # from an older install's folder (they did after the rename to FileStow).
+    assert_contains "$deploy" 'database-backup.service database-size-check.service)'
+    assert_contains "$deploy" 'render_unit "$SOURCE_DIR/systemd/$db_unit.template" "$UNIT_DIR/$db_unit" "$db_lock"'
+    local db_unit
+    for db_unit in database-backup.service database-size-check.service; do
+        sed \
+            -e "s|__INSTALL_DIR__|$ROOT_DIR|g" \
+            -e 's|__CONFIG_DIR__|/etc/filestow|g' \
+            -e 's|__USER_GROUP_DIRECTIVES__||g' \
+            -e 's|__LOCK_FILE__|/run/filestow/test.lock|g' \
+            "$ROOT_DIR/systemd/$db_unit.template" > "$test_root/$db_unit"
+        ! grep -Eq '__[A-Z0-9_]+__' "$test_root/$db_unit" || fail_test "$db_unit has a placeholder the deploy does not fill"
+        assert_contains "$test_root/$db_unit" 'OnFailure=filestow-notify@%n.service'
+        assert_contains "$test_root/$db_unit" "ExecStart=$ROOT_DIR/bin/systemd-fork-run.sh"
+    done
     # /run/filestow holds the GUI's control socket: no unit may delete it on stop.
     local template
     for template in "$ROOT_DIR"/systemd/*.template; do

@@ -23,7 +23,7 @@ WATCHDOG_TEMPLATE_UNIT="filestow-watchdog@.service"
 WATCHDOG_INSTANCE_UNIT="filestow-watchdog@file-backup.service"
 PROFILE_DROPIN_DIR="$UNIT_DIR/$SERVICE_UNIT.d"
 CONTROL_SOCKET_UNIT="filestow-control.socket"
-MANAGED_UNIT_FILES=(file-backup.service filestow-notify@.service "$WATCHDOG_TEMPLATE_UNIT" "$CONTROL_SOCKET_UNIT" filestow-control@.service)
+MANAGED_UNIT_FILES=(file-backup.service filestow-notify@.service "$WATCHDOG_TEMPLATE_UNIT" "$CONTROL_SOCKET_UNIT" filestow-control@.service database-backup.service database-size-check.service)
 GUI_ADMINS=()
 RUN_ID=$(date -u '+%Y%m%dT%H%M%SZ')
 BACKUP_DIR=""
@@ -226,6 +226,8 @@ required_source_files=(
     "$SOURCE_DIR/systemd/filestow-control.socket.template"
     "$SOURCE_DIR/systemd/filestow-control@.service.template"
     "$SOURCE_DIR/systemd/file-backup.service.template"
+    "$SOURCE_DIR/systemd/database-backup.service.template"
+    "$SOURCE_DIR/systemd/database-size-check.service.template"
     "$SOURCE_DIR/systemd/filestow-notify@.service.template"
     "$SOURCE_DIR/systemd/filestow-watchdog@.service.template"
     "$SOURCE_DIR/tests/run.sh"
@@ -382,6 +384,7 @@ fi
 render_unit() {
     local template_file="$1"
     local output_file="$2"
+    local lock_file="${3:-$STATE_DIR/locks/file-backup.service.lock}"
     local rendered_file
     local runtime_max
 
@@ -391,7 +394,7 @@ render_unit() {
         -e "s|__INSTALL_DIR__|$INSTALL_DIR|g" \
         -e "s|__CONFIG_DIR__|$CONFIG_DIR|g" \
         -e 's|__USER_GROUP_DIRECTIVES__||g' \
-        -e "s|__LOCK_FILE__|$STATE_DIR/locks/file-backup.service.lock|g" \
+        -e "s|__LOCK_FILE__|$lock_file|g" \
         -e "s|__FILE_BACKUP_RUNTIME_MAX_SEC__|$runtime_max|g" \
         -e 's|__WATCHDOG_PRIVILEGED_DIRECTIVES__|Nice=-5\nOOMScoreAdjust=-900|g' \
         "$template_file" > "$rendered_file"
@@ -408,6 +411,19 @@ render_unit "$SOURCE_DIR/systemd/file-backup.service.template" "$UNIT_DIR/$SERVI
 render_unit "$SOURCE_DIR/systemd/filestow-watchdog@.service.template" "$UNIT_DIR/$WATCHDOG_TEMPLATE_UNIT"
 render_unit "$SOURCE_DIR/systemd/filestow-notify@.service.template" "$UNIT_DIR/filestow-notify@.service"
 systemd-analyze verify "$UNIT_DIR/$SERVICE_UNIT" "$UNIT_DIR/$WATCHDOG_INSTANCE_UNIT"
+# The database units run the installed scripts too, so they follow this
+# installation (their paths and failure notices); their timers and schedule
+# drop-ins are left as they are. They apply from their next start.
+for db_unit in database-backup.service database-size-check.service; do
+    [ -f "$UNIT_DIR/$db_unit" ] || continue
+    case "$db_unit" in
+        database-backup.service) db_lock="/run/filestow/database-backup.lock" ;;
+        *) db_lock="/run/filestow/database-monitor.lock" ;;
+    esac
+    log "Installing systemd unit: $db_unit"
+    render_unit "$SOURCE_DIR/systemd/$db_unit.template" "$UNIT_DIR/$db_unit" "$db_lock"
+    systemd-analyze verify "$UNIT_DIR/$db_unit"
+done
 
 # The database units belong to setup.sh and are not re-rendered here; only
 # their swap cap (taken from the template) is added as a drop-in, and it
